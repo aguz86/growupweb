@@ -44,6 +44,25 @@ export const playAlarmSound = (volume: number = 0.8) => {
   playNote(392.00, 2.4, 1.8); // G4
 };
 
+export const sendLocalNotification = (title: string, body: string) => {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.showNotification(title, {
+          body: body,
+          icon: '/icon.jpg',
+          badge: '/icon.jpg',
+          vibrate: [200, 100, 200],
+        } as any);
+      });
+    } else {
+      // Fallback for desktop/contexts without SW
+      new Notification(title, { body, icon: '/icon.jpg' });
+    }
+  }
+};
+
 export const speakText = (text: string, volume: number = 0.8) => {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel(); // stop any current speech
@@ -219,8 +238,10 @@ export function useSchedule() {
               if (isAudioEnabled && lastSpeechId !== startAlarmId) {
                   setLastSpeechId(startAlarmId);
                   playAlarmSound(volume);
+                  const msg = `Sesi ${item.activity} telah dimulai. Durasi sesi ini adalah ${item.duration} menit. Mari tetap disiplin dan fokus sampai sesi berakhir.`;
+                  sendLocalNotification(`Sesi Dimulai: ${item.activity}`, msg);
                   setTimeout(() => {
-                      speakText(`Sesi ${item.activity} telah dimulai. Durasi sesi ini adalah ${item.duration} menit. Mari tetap disiplin dan fokus sampai sesi berakhir.`, volume);
+                      speakText(msg, volume);
                   }, 3500);
               }
           }
@@ -232,8 +253,10 @@ export function useSchedule() {
               if (isAudioEnabled && lastSpeechId !== halfAlarmId) {
                   setLastSpeechId(halfAlarmId);
                   playAlarmSound(volume);
+                  const msg = `Perhatian. Anda sudah berada di pertengahan sesi ${item.activity}. Tetap disiplin dan patuhi waktu.`;
+                  sendLocalNotification(`Pertengahan Sesi`, msg);
                   setTimeout(() => {
-                      speakText(`Perhatian. Anda sudah berada di pertengahan sesi ${item.activity}. Tetap disiplin dan patuhi waktu.`, volume);
+                      speakText(msg, volume);
                   }, 3500);
               }
           }
@@ -252,18 +275,24 @@ export function useSchedule() {
                   
                   if (isCurrentBreak10m) {
                       playAlarmSound(volume);
+                      const msg = "Perhatian-perhatian. Waktu jeda anda akan segera berakhir. Para penumpang kehidupan, selamat beraktifitas kembali.";
+                      sendLocalNotification("Waktu Jeda Hampir Berakhir", "Persiapkan diri Anda.");
                       setTimeout(() => {
-                          speakText("Perhatian-perhatian. Waktu jeda anda akan segera berakhir. Para penumpang kehidupan, selamat beraktifitas kembali.", volume);
+                          speakText(msg, volume);
                       }, 3500);
                   } else if (isNextBreak10m) {
                       playAlarmSound(volume);
+                      const msg = "Perhatian-perhatian. Satu menit lagi menuju waktu jeda. Dimohon untuk bersiap-siap, waktunya waterbreak.";
+                      sendLocalNotification("Persiapan Waktu Jeda", "1 Menit lagi.");
                       setTimeout(() => {
-                          speakText("Perhatian-perhatian. Satu menit lagi menuju waktu jeda. Dimohon untuk bersiap-siap, waktunya waterbreak.", volume);
+                          speakText(msg, volume);
                       }, 3500);
                   } else if (!item.isBreak && isNextImmediatelyAfter) {
                       playAlarmSound(volume);
+                      const msg = `Perhatian-perhatian. Satu menit lagi sesi ini berakhir. Selanjutnya adalah waktunya ${nextItem.activity}.`;
+                      sendLocalNotification("Persiapan Sesi Berikutnya", `1 Menit menuju ${nextItem.activity}`);
                       setTimeout(() => {
-                          speakText(`Perhatian-perhatian. Satu menit lagi sesi ini berakhir. Selanjutnya adalah waktunya ${nextItem.activity}.`, volume);
+                          speakText(msg, volume);
                       }, 3500);
                   }
               }

@@ -79,10 +79,27 @@ export default function App() {
     requestNotificationPermission();
   }, []);
 
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+    });
+  }, []);
+
   const handleDownloadApp = async () => {
-      // In a real PWA context, this would use the beforeinstallprompt event.
-      // Here we simulate it or show an alert to guide the user.
-      alert("Untuk menginstall app ini, gunakan fitur 'Add to Home Screen' atau 'Install App' di browser Anda.");
+      if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+              setDeferredPrompt(null);
+          }
+      } else {
+          alert("Untuk menginstall app ini, gunakan fitur 'Add to Home Screen' atau 'Install App' di menu browser Anda (titik tiga di pojok kanan atas atau icon share di iOS).");
+      }
   };
 
   return (
