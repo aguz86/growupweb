@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X } from 'lucide-react';
+import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus } from 'lucide-react';
 import { useSchedule, playAlarmSound, speakText } from './hooks/useSchedule';
 import { cn } from './lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -14,6 +14,7 @@ import { getScheduleForDate, ScheduleItem } from './data/schedule';
 import { AuthMenu } from './components/AuthMenu';
 import { EditTaskModal } from './components/EditTaskModal';
 import { MotivationalNote } from './components/MotivationalNote';
+import { downloadICS } from './utils/icsExport';
 
 const formatRemainingTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -217,11 +218,20 @@ export default function App() {
             <div className="lg:col-span-7 flex flex-col gap-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-6">
-                   <h2 className="text-lg font-semibold flex items-center gap-2">
-                       <Clock className="w-5 h-5 text-[#c0392b]" />
-                       Jadwal Hari Ini <span className="text-gray-400 text-sm font-normal">({currentDateStr})</span>
-                   </h2>
-                   <div className="text-sm px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-600">
+                   <div className="flex flex-col gap-1">
+                     <h2 className="text-lg font-semibold flex items-center gap-2">
+                         <Clock className="w-5 h-5 text-[#c0392b]" />
+                         Jadwal Hari Ini <span className="text-gray-400 text-sm font-normal">({currentDateStr})</span>
+                     </h2>
+                     <button
+                        onClick={() => downloadICS(todaySchedule, currentDateStr)}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-emerald-200"
+                     >
+                       <CalendarPlus className="w-3.5 h-3.5" />
+                       Sinkronkan Alarm ke Kalender HP
+                     </button>
+                   </div>
+                   <div className="text-sm px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-600 shrink-0">
                        {Object.keys(progress).filter(k => progress[k]).length} / {todaySchedule.length} Selesai
                    </div>
                 </div>
@@ -384,6 +394,18 @@ export default function App() {
         </div>
         ) : (
           <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
+            <div className="flex flex-col gap-2 bg-white p-4 rounded-xl shadow-sm border border-emerald-100">
+                <div className="flex items-start gap-3">
+                    <div className="p-2 bg-emerald-100 rounded-full shrink-0">
+                        <CalendarPlus className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-gray-900">Tetap Dapat Notifikasi Meskipun Web Ditutup!</h3>
+                        <p className="text-sm text-gray-600 mt-1">Pilih tanggal di bawah ini, lalu klik kartu jadwal pada hari tersebut untuk men-download file Kalender (.ics). Sinkronkan dengan <b>Google Calendar / Kalender iPhone</b> Anda agar alarm berbunyi 100% tanpa jaringan internet dan saat app ditutup.</p>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-3 w-full">
                 {Array.from({ length: 6 }).map((_, i) => {
                     const targetDate = addDays(new Date(), i + 1);
@@ -416,9 +438,18 @@ export default function App() {
                 const schedule = getResolvedSchedule(targetDate);
                 return (
                     <div className="bg-indigo-50/50 rounded-2xl p-6 shadow-md border border-indigo-100 animate-in fade-in slide-in-from-top-4 duration-300">
-                        <div className="flex items-center gap-2 mb-6 border-b border-indigo-100 pb-4">
-                            <CalendarDays className="w-5 h-5 text-indigo-600" />
-                            <h2 className="text-lg font-bold text-indigo-900">{dayName}, <span className="font-medium text-indigo-500">{selectedUpcomingDate}</span></h2>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-indigo-100 pb-4">
+                            <div className="flex items-center gap-2">
+                                <CalendarDays className="w-5 h-5 text-indigo-600" />
+                                <h2 className="text-lg font-bold text-indigo-900">{dayName}, <span className="font-medium text-indigo-500">{selectedUpcomingDate}</span></h2>
+                            </div>
+                            <button
+                                onClick={() => downloadICS(schedule, selectedUpcomingDate)}
+                                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-white bg-indigo-100 hover:bg-indigo-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
+                            >
+                                <CalendarPlus className="w-4 h-4" />
+                                Sinkronkan ke Kalender
+                            </button>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -540,14 +571,19 @@ export default function App() {
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">Panduan Penggunaan</h2>
                 <div className="text-sm text-gray-600 space-y-4 mb-6">
-                    <p>Agar alarm dan pengingat jadwal dapat berjalan optimal, pastikan Anda memberikan izin berikut pada perangkat Anda:</p>
-                    <ul className="list-disc pl-5 space-y-2">
-                        <li><strong>Izinkan Notifikasi:</strong> Agar pesan pop-up muncul bahkan saat Anda tidak membuka aplikasi ini.</li>
-                        <li><strong>Izinkan Berjalan di Latar Belakang (Background Activity):</strong> Cegah perangkat mematikan web app ini saat Anda membuka aplikasi lain.</li>
-                        <li><strong>Gunakan WiFi/Data:</strong> Pastikan Anda terkoneksi ke internet jika ingin men-download update jadwal terbaru.</li>
+                    <p>Agar alarm peringatan (suara & pop-up) dapat berjalan otomatis, pilih salah satu dari 2 metode berikut:</p>
+                    <ul className="list-disc pl-5 space-y-3">
+                        <li>
+                            <strong>Metode 1: Biarkan Tab Terbuka (Suara Nyaring)</strong><br/>
+                            Aplikasi web tidak dapat membunyikan suara jika Anda menutup tab. Pastikan <b>tab tetap terbuka di latar belakang</b>, tombol <b>Audio ON</b> aktif, dan Izinkan Notifikasi. Gunakan ini saat HP aktif.
+                        </li>
+                        <li>
+                            <strong>Metode 2: Alarm Meskipun Web Ditutup (Rekomendasi!)</strong><br/>
+                            Klik tombol <b><span className="text-emerald-600 bg-emerald-50 px-1 rounded inline-flex items-center gap-1 border border-emerald-200"><CalendarPlus className="w-3 h-3"/> Sinkronkan Alarm ke Kalender HP</span></b> yang ada di bawah judul "Jadwal Hari Ini". Otomatis alarm akan masuk ke Kalender HP Anda (Google/Apple) dan dijamin berbunyi 100% meskipun web ini Anda tutup seluruhnya!
+                        </li>
                     </ul>
-                    <p className="text-xs bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-200">
-                        *Catatan: Pada perangkat Android/iOS, Anda mungkin perlu mengatur aplikasi web ini melalui menu Pengaturan Baterai perangkat Anda (Pilih 'Tidak Dibatasi' atau 'Unrestricted').
+                    <p className="text-xs bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-200 leading-relaxed font-medium">
+                        *Catatan: Sistem Android / iOS otomatis "membunuh" aplikasi web di latar belakang demi menghemat baterai. Metode Export Kalender (Metode 2) sangat direkomendasikan agar jadwal tetap aman!
                     </p>
                 </div>
                 <button 

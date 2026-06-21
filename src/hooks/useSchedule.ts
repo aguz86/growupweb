@@ -54,11 +54,12 @@ export const sendLocalNotification = (title: string, body: string) => {
           icon: '/icon.jpg',
           badge: '/icon.jpg',
           vibrate: [200, 100, 200],
+          requireInteraction: true,
         } as any);
       });
     } else {
       // Fallback for desktop/contexts without SW
-      new Notification(title, { body, icon: '/icon.jpg' });
+      new Notification(title, { body, icon: '/icon.jpg', requireInteraction: true } as any);
     }
   }
 };
@@ -102,6 +103,41 @@ export function useSchedule() {
   const [volume, setVolume] = useState(0.8);
   const [lastSpeechId, setLastSpeechId] = useState<string | null>(null);
   const previousItemRef = useRef<string | null>(null);
+
+  // Background Audio Hack to keep service alive
+  useEffect(() => {
+    const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    let backgroundAudio = (window as any)._globalSilentAudio;
+    
+    if (!backgroundAudio) {
+        backgroundAudio = new Audio(silentWav);
+        backgroundAudio.loop = true;
+        (window as any)._globalSilentAudio = backgroundAudio;
+    }
+
+    const unlockAudio = () => {
+        if (isAudioEnabled && backgroundAudio.paused) {
+            backgroundAudio.play().catch(() => {});
+        }
+    };
+
+    if (isAudioEnabled) {
+        backgroundAudio.play().catch(() => {
+            // If autoplay policy blocks it, wait for user interaction:
+            document.addEventListener('click', unlockAudio, { once: true });
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+        });
+    } else {
+        backgroundAudio.pause();
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('touchstart', unlockAudio);
+    }
+    
+    return () => {
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('touchstart', unlockAudio);
+    }
+  }, [isAudioEnabled]);
 
   // Load progress on mount or date change
   useEffect(() => {
