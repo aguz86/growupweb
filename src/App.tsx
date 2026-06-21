@@ -49,8 +49,16 @@ export default function App() {
   const [selectedUpcomingDate, setSelectedUpcomingDate] = useState<string>(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
   const [editingTask, setEditingTask] = useState<{ item: ScheduleItem, index: number, dateStr: string } | null>(null);
   const [showActivePopup, setShowActivePopup] = useState(true);
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
 
   const activeItemRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const hasSeenGuide = localStorage.getItem('hasSeenPermissionGuide');
+    if (!hasSeenGuide) {
+      setTimeout(() => setShowPermissionGuide(true), 1500);
+    }
+  }, []);
 
   useEffect(() => {
     if (activeItemRef.current && activeTab === 'today') {
@@ -77,33 +85,52 @@ export default function App() {
 
   useEffect(() => {
     requestNotificationPermission();
-  }, []);
+    
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('Wake Lock is active');
+        }
+      } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+          console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+        }
+      }
+    };
 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const handleVisibilityChange = async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    };
 
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      // Prevent the mini-infobar from appearing on mobile
-      e.preventDefault();
-      // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
-    });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    requestWakeLock();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock !== null) {
+        wakeLock.release().then(() => { wakeLock = null; });
+      }
+    };
   }, []);
 
   const handleDownloadApp = async () => {
-      if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
+      if (window.deferredPrompt) {
+          window.deferredPrompt.prompt();
+          const { outcome } = await window.deferredPrompt.userChoice;
           if (outcome === 'accepted') {
-              setDeferredPrompt(null);
+              window.deferredPrompt = null;
           }
       } else {
-          alert("Untuk menginstall app ini, gunakan fitur 'Add to Home Screen' atau 'Install App' di menu browser Anda (titik tiga di pojok kanan atas atau icon share di iOS).");
+          alert("Untuk menginstall app ini, silakan gunakan fitur 'Add to Home Screen' atau 'Install App' di menu browser Anda (biasanya terletak di titik tiga pojok kanan atas atau icon share di iOS). Pada beberapa browser tertentu, Anda mungkin juga perlu memastikan telah menerima cookie.");
       }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-red-100 selection:text-red-900 flex flex-col">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-red-100 selection:text-red-900 flex flex-col overflow-x-hidden">
       <header className="bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 text-white py-4 px-6 sticky top-0 z-50 shadow-lg border-b border-black/10">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
@@ -356,8 +383,8 @@ export default function App() {
           </div>
         </div>
         ) : (
-          <div className="flex flex-col gap-6">
-            <div className="flex overflow-x-auto gap-3 pb-6 px-4 -mx-4 sm:mx-0 sm:px-0 snap-x hide-scrollbar">
+          <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
+            <div className="grid grid-cols-3 gap-3 w-full">
                 {Array.from({ length: 6 }).map((_, i) => {
                     const targetDate = addDays(new Date(), i + 1);
                     const targetDateStr = format(targetDate, 'yyyy-MM-dd');
@@ -369,7 +396,7 @@ export default function App() {
                             key={targetDateStr}
                             onClick={() => setSelectedUpcomingDate(targetDateStr)}
                             className={cn(
-                                "flex-shrink-0 flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border min-w-[90px] sm:min-w-[120px] transition-all snap-center",
+                                "w-full flex flex-col items-center justify-center p-2 sm:p-4 rounded-2xl border transition-all",
                                 isSelected 
                                     ? "bg-indigo-500 text-white border-indigo-600 shadow-md transform sm:scale-105" 
                                     : "bg-white text-gray-700 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 hover:-translate-y-1"
@@ -494,6 +521,41 @@ export default function App() {
                         </div>
                     </div>
                 )}
+            </div>
+        </div>
+      )}
+
+      {/* Permission Guide Popup */}
+      {showPermissionGuide && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 relative animate-in zoom-in-95 duration-300">
+                <button 
+                  onClick={() => setShowPermissionGuide(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                    <Activity className="w-6 h-6 text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Panduan Penggunaan</h2>
+                <div className="text-sm text-gray-600 space-y-4 mb-6">
+                    <p>Agar alarm dan pengingat jadwal dapat berjalan optimal, pastikan Anda memberikan izin berikut pada perangkat Anda:</p>
+                    <ul className="list-disc pl-5 space-y-2">
+                        <li><strong>Izinkan Notifikasi:</strong> Agar pesan pop-up muncul bahkan saat Anda tidak membuka aplikasi ini.</li>
+                        <li><strong>Izinkan Berjalan di Latar Belakang (Background Activity):</strong> Cegah perangkat mematikan web app ini saat Anda membuka aplikasi lain.</li>
+                        <li><strong>Gunakan WiFi/Data:</strong> Pastikan Anda terkoneksi ke internet jika ingin men-download update jadwal terbaru.</li>
+                    </ul>
+                    <p className="text-xs bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-200">
+                        *Catatan: Pada perangkat Android/iOS, Anda mungkin perlu mengatur aplikasi web ini melalui menu Pengaturan Baterai perangkat Anda (Pilih 'Tidak Dibatasi' atau 'Unrestricted').
+                    </p>
+                </div>
+                <button 
+                  onClick={() => setShowPermissionGuide(false)}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all active:scale-95"
+                >
+                    Mengerti & Lanjutkan
+                </button>
             </div>
         </div>
       )}

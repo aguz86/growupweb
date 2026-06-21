@@ -1,3 +1,7 @@
+self.addEventListener('fetch', function(event) {
+  // Empty fetch handler makes the PWA installable
+});
+
 self.addEventListener('push', function(event) {
   const data = event.data ? event.data.json() : {};
   
@@ -6,6 +10,7 @@ self.addEventListener('push', function(event) {
     icon: '/icon.jpg',
     badge: '/icon.jpg',
     vibrate: [200, 100, 200, 100, 200],
+    requireInteraction: true,
     data: {
       url: data.url || '/'
     }
