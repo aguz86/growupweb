@@ -1,0 +1,6 @@
+{
+  "name": "Progress & Schedule Tracker",
+  "description": "A productivity tracker for personal development with a timeline schedule, week progress chart, and audio alarms for breaks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

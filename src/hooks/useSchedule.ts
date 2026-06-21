@@ -1,0 +1,328 @@
+import { useState, useEffect, useRef } from 'react';
+import { format, parse, addDays } from 'date-fns';
+import { getScheduleForDate, ScheduleItem } from '../data/schedule';
+import { db, auth } from '../lib/firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+
+export type DailyProgress = Record<string, boolean>; // id -> checked state
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  // Trigger loading voices
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
+}
+
+export const playAlarmSound = (volume: number = 0.8) => {
+  const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContext) return;
+  const ctx = new AudioContext();
+
+  const playNote = (freq: number, time: number, duration: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    // Smooth chime sound
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + time);
+    
+    gain.gain.setValueAtTime(0, ctx.currentTime + time);
+    gain.gain.linearRampToValueAtTime(0.6 * volume, ctx.currentTime + time + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01 * volume, ctx.currentTime + time + duration - 0.05);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + time);
+    osc.stop(ctx.currentTime + time + duration);
+  };
+
+  // Nada bel stasiun kereta api Indonesia (Westminster Quarters G, C, D, G)
+  // Atau lebih dikenal dengan E5, C5, D5, G4
+  playNote(659.25, 0, 0.8); // E5
+  playNote(523.25, 0.8, 0.8); // C5
+  playNote(587.33, 1.6, 0.8); // D5
+  playNote(392.00, 2.4, 1.8); // G4
+};
+
+export const speakText = (text: string, volume: number = 0.8) => {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel(); // stop any current speech
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'id-ID';
+  utterance.pitch = 1.3; // Pitch sedikit ditinggikan untuk kesan suara perempuan / announcer
+  utterance.rate = 0.85; // Dibuat sedikit lambat agar seperti pengumuman stasiun
+  utterance.volume = volume;
+  
+  const voices = window.speechSynthesis.getVoices();
+  const idVoices = voices.filter(v => v.lang === 'id-ID' || v.lang === 'id_ID');
+  
+  // Mencari suara perempuan (Damayanti, Gadis, atau Google yang biasanya perempuan)
+  let targetVoice = idVoices.find(v => 
+    v.name.toLowerCase().includes('female') || 
+    v.name.toLowerCase().includes('gadis') || 
+    v.name.toLowerCase().includes('damayanti') ||
+    v.name.includes('Google')
+  );
+
+  if (!targetVoice && idVoices.length > 0) {
+      targetVoice = idVoices[0]; // fallback ke suara Indonesia pertama yang ada
+  }
+  
+  if (targetVoice) utterance.voice = targetVoice;
+  
+  window.speechSynthesis.speak(utterance);
+};
+
+export function useSchedule() {
+  const [currentDateStr, setCurrentDateStr] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [progress, setProgress] = useState<DailyProgress>({});
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [volume, setVolume] = useState(0.8);
+  const [lastSpeechId, setLastSpeechId] = useState<string | null>(null);
+  const previousItemRef = useRef<string | null>(null);
+
+  // Load progress on mount or date change
+  useEffect(() => {
+    const todayProgressStr = localStorage.getItem(`productivity_${currentDateStr}`);
+    if (todayProgressStr) {
+      try {
+        setProgress(JSON.parse(todayProgressStr));
+      } catch (e) {
+        setProgress({});
+      }
+    } else {
+      setProgress({});
+    }
+  }, [currentDateStr]);
+
+  const toggleTask = (id: string) => {
+    setProgress(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      localStorage.setItem(`productivity_${currentDateStr}`, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const [customSchedules, setCustomSchedules] = useState<Record<string, ScheduleItem[]>>({});
+  const [user, setUser] = useState(auth.currentUser);
+
+  useEffect(() => {
+    return auth.onAuthStateChanged(setUser);
+  }, []);
+
+  // Fetch local schedules
+  useEffect(() => {
+    const loadedSchedules: Record<string, ScheduleItem[]> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('custom_schedule_')) {
+            const dateStr = key.replace('custom_schedule_', '');
+            try {
+                loadedSchedules[dateStr] = JSON.parse(localStorage.getItem(key) || '[]');
+            } catch(e) {}
+        }
+    }
+    setCustomSchedules(prev => ({ ...prev, ...loadedSchedules }));
+  }, []);
+
+  // Fetch Firebase schedules when user logs in
+  useEffect(() => {
+    if (!user) return;
+    // We fetch a 14-day window around today to be safe, but simpler is to fetch all docs in 'schedules' subcollection.
+    // However getDocs on subcollection requires importing getDocs, collection.
+    // Instead, we just listen to the dates we care about when we render them, or just use a generic fetch.
+    // For simplicity, let's export a function to load a date if not loaded.
+  }, [user]);
+
+  const loadScheduleForDate = async (dateStr: string) => {
+    if (user) {
+        try {
+            const docRef = doc(db, 'users', user.uid, 'schedules', dateStr);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                setCustomSchedules(prev => ({ ...prev, [dateStr]: docSnap.data().schedule }));
+            }
+        } catch (e) {
+            console.error("Firebase fetch error", e);
+        }
+    }
+  };
+
+  useEffect(() => {
+     loadScheduleForDate(currentDateStr);
+  }, [currentDateStr, user]);
+
+  const getResolvedSchedule = (date: Date) => {
+      const dStr = format(date, 'yyyy-MM-dd');
+      return customSchedules[dStr] || getScheduleForDate(date);
+  };
+
+  const updateScheduleItem = async (dateStr: string, index: number, updatedItem: ScheduleItem) => {
+      const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
+      const nextSchedule = [...current];
+      nextSchedule[index] = updatedItem;
+      
+      setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
+      localStorage.setItem(`custom_schedule_${dateStr}`, JSON.stringify(nextSchedule));
+
+      if (user) {
+          try {
+              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
+          } catch(e) {
+              console.error("Firebase save error", e);
+          }
+      }
+  };
+
+  // Timer loop for active item & alarms
+  useEffect(() => {
+    const clock = setInterval(() => {
+      const now = new Date();
+      // If passing midnight, date string might need an update
+      const actualDateStr = format(now, 'yyyy-MM-dd');
+      if (actualDateStr !== currentDateStr) {
+        setCurrentDateStr(actualDateStr);
+      }
+
+      let foundActive: string | null = null;
+      let remSec: number | null = null;
+
+      const currentScheduleData = getResolvedSchedule(now);
+
+      for (let i = 0; i < currentScheduleData.length; i++) {
+        const item = currentScheduleData[i];
+        let startD = parse(item.start, 'HH:mm', now);
+        let endD = parse(item.end, 'HH:mm', now);
+
+        if (endD < startD) {
+           if (now < startD) {
+              startD = addDays(startD, -1);
+           } else {
+              endD = addDays(endD, 1);
+           }
+        }
+
+        const isActive = now >= startD && now < endD;
+
+        if (isActive) {
+          foundActive = item.id;
+          remSec = Math.floor((endD.getTime() - now.getTime()) / 1000);
+          
+          const elapsedSec = Math.floor((now.getTime() - startD.getTime()) / 1000);
+          
+          // Alarm start session (at the 5th second)
+          if (elapsedSec >= 5 && elapsedSec <= 10) {
+              const startAlarmId = `start_${item.id}_${actualDateStr}`;
+              if (isAudioEnabled && lastSpeechId !== startAlarmId) {
+                  setLastSpeechId(startAlarmId);
+                  playAlarmSound(volume);
+                  setTimeout(() => {
+                      speakText(`Sesi ${item.activity} telah dimulai. Durasi sesi ini adalah ${item.duration} menit. Mari tetap disiplin dan fokus sampai sesi berakhir.`, volume);
+                  }, 3500);
+              }
+          }
+
+          // Alarm 50% of the session
+          const halfSec = Math.floor((item.duration * 60) / 2);
+          if (!item.isBreak && elapsedSec >= halfSec && elapsedSec <= halfSec + 5) {
+              const halfAlarmId = `half_${item.id}_${actualDateStr}`;
+              if (isAudioEnabled && lastSpeechId !== halfAlarmId) {
+                  setLastSpeechId(halfAlarmId);
+                  playAlarmSound(volume);
+                  setTimeout(() => {
+                      speakText(`Perhatian. Anda sudah berada di pertengahan sesi ${item.activity}. Tetap disiplin dan patuhi waktu.`, volume);
+                  }, 3500);
+              }
+          }
+
+          // TTs Alarms (~60 seconds before end)
+          if (remSec <= 60 && remSec >= 55) {
+              const nextItem = currentScheduleData[(i + 1) % currentScheduleData.length];
+              const isNextImmediatelyAfter = item.end === nextItem.start;
+              const isCurrentBreak10m = item.isBreak && item.duration === 10;
+              const isNextBreak10m = isNextImmediatelyAfter && nextItem.isBreak && nextItem.duration === 10;
+
+              const alarmId = `speech_${item.id}_${actualDateStr}_1m`;
+
+              if (isAudioEnabled && lastSpeechId !== alarmId) {
+                  setLastSpeechId(alarmId);
+                  
+                  if (isCurrentBreak10m) {
+                      playAlarmSound(volume);
+                      setTimeout(() => {
+                          speakText("Perhatian-perhatian. Waktu jeda anda akan segera berakhir. Para penumpang kehidupan, selamat beraktifitas kembali.", volume);
+                      }, 3500);
+                  } else if (isNextBreak10m) {
+                      playAlarmSound(volume);
+                      setTimeout(() => {
+                          speakText("Perhatian-perhatian. Satu menit lagi menuju waktu jeda. Dimohon untuk bersiap-siap, waktunya waterbreak.", volume);
+                      }, 3500);
+                  } else if (!item.isBreak && isNextImmediatelyAfter) {
+                      playAlarmSound(volume);
+                      setTimeout(() => {
+                          speakText(`Perhatian-perhatian. Satu menit lagi sesi ini berakhir. Selanjutnya adalah waktunya ${nextItem.activity}.`, volume);
+                      }, 3500);
+                  }
+              }
+          }
+          break; // found the active one
+        }
+      }
+
+      setActiveItemId(foundActive);
+      setRemainingSeconds(remSec);
+      
+    }, 1000);
+
+    return () => clearInterval(clock);
+  }, [currentDateStr, isAudioEnabled, lastSpeechId, volume]);
+
+  const getWeeklyStats = () => {
+    const stats = [];
+    const today = new Date();
+    // get past 7 days including today
+    for (let i = 6; i >= 0; i--) {
+      const d = addDays(today, -i);
+      const dStr = format(d, 'yyyy-MM-dd');
+      const dayName = format(d, 'EEE');
+      
+      const stored = localStorage.getItem(`productivity_${dStr}`);
+      let completedCount = 0;
+      if (stored) {
+        try {
+          const parsed: DailyProgress = JSON.parse(stored);
+          completedCount = Object.values(parsed).filter(val => val).length;
+        } catch(e){}
+      }
+      
+      stats.push({
+        date: dStr,
+        day: dayName,
+        completed: completedCount,
+        total: getResolvedSchedule(d).length
+      });
+    }
+    return stats;
+  };
+
+  return {
+    currentDateStr,
+    todaySchedule: getResolvedSchedule(new Date(currentDateStr)),
+    progress,
+    activeItemId,
+    remainingSeconds,
+    toggleTask,
+    isAudioEnabled,
+    setIsAudioEnabled,
+    volume,
+    setVolume,
+    weeklyStats: getWeeklyStats(),
+    getResolvedSchedule,
+    updateScheduleItem,
+    loadScheduleForDate,
+    user
+  };
+}
