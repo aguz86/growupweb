@@ -60,8 +60,26 @@ export default function App() {
   const activeItemIndex = todaySchedule.findIndex(i => i.id === activeItemId);
   const activeItem = activeItemIndex >= 0 ? todaySchedule[activeItemIndex] : null;
 
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        await Notification.requestPermission();
+      }
+    }
+  };
+
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
+  const handleDownloadApp = async () => {
+      // In a real PWA context, this would use the beforeinstallprompt event.
+      // Here we simulate it or show an alert to guide the user.
+      alert("Untuk menginstall app ini, gunakan fitur 'Add to Home Screen' atau 'Install App' di browser Anda.");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-red-100 selection:text-red-900">
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-red-100 selection:text-red-900 flex flex-col">
       <header className="bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 text-white py-4 px-6 sticky top-0 z-50 shadow-lg border-b border-black/10">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
@@ -110,6 +128,103 @@ export default function App() {
         
         <MotivationalNote />
 
+        {/* Status & Charts Section (Moved below header) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 border-b border-black/5 bg-gray-100">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+               {/* Active Status Card */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                   <h2 className="text-lg font-semibold mb-4">Status Saat Ini</h2>
+                   
+                   {activeItem ? (
+                       <div className={cn(
+                           "p-5 rounded-xl border-l-4 transition-colors",
+                           activeItem.isBreak 
+                             ? (remainingSeconds !== null && remainingSeconds <= 60
+                                 ? "bg-yellow-50 border-yellow-500"
+                                 : "bg-red-50 border-[#c0392b]")
+                             : "bg-green-50 border-green-500"
+                       )}>
+                           <div className="flex items-center gap-2 mb-2 text-xs font-mono font-bold uppercase tracking-wider text-gray-500">
+                                Sedang Berlangsung {activeItem.isBreak ? "(Jeda)" : ""}
+                           </div>
+                           <h3 className="text-xl font-bold text-gray-900 mb-2">{activeItem.activity}</h3>
+                           <p className="text-gray-600 text-sm mb-4">{activeItem.notes}</p>
+                           
+                           {remainingSeconds !== null && (
+                               <div className={cn(
+                                   "my-4 p-5 rounded-2xl border-2 flex flex-col items-center justify-center shadow-inner relative overflow-hidden group transition-colors",
+                                   activeItem.isBreak 
+                                     ? (remainingSeconds <= 60 
+                                         ? "bg-gradient-to-br from-yellow-50 to-yellow-500/10 border-yellow-500/20" 
+                                         : "bg-gradient-to-br from-red-50 to-[#c0392b]/10 border-[#c0392b]/20")
+                                     : "bg-gradient-to-br from-green-50 to-green-500/10 border-green-500/20"
+                               )}>
+                                   <div className={cn(
+                                     "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity",
+                                     activeItem.isBreak 
+                                         ? (remainingSeconds <= 60 ? "bg-yellow-500/5" : "bg-[#c0392b]/5")
+                                         : "bg-green-500/5"
+                                   )}></div>
+                                   <div className={cn(
+                                       "flex items-center gap-2 text-xs font-bold tracking-widest mb-2 uppercase transition-colors",
+                                       activeItem.isBreak 
+                                         ? (remainingSeconds <= 60 ? "text-yellow-600/80" : "text-[#c0392b]/80")
+                                         : "text-green-600/80"
+                                   )}>
+                                       <Timer className="w-4 h-4 animate-pulse" />
+                                       <span>Waktu Tersisa</span>
+                                   </div>
+                                   <div className={cn(
+                                       "text-5xl md:text-6xl font-mono font-extrabold tracking-tighter drop-shadow-sm transition-colors",
+                                       activeItem.isBreak 
+                                         ? (remainingSeconds <= 60 ? "text-yellow-500" : "text-[#c0392b]")
+                                         : "text-green-600"
+                                   )}>
+                                       {formatRemainingTime(remainingSeconds)}
+                                   </div>
+                               </div>
+                           )}
+
+                           <div className="flex items-center gap-2 pt-2 border-t border-black/5 mt-2">
+                                <Clock className="w-4 h-4 text-gray-400" />
+                                <span className="font-mono text-sm font-medium">{activeItem.start} - {activeItem.end} ({activeItem.duration}m)</span>
+                           </div>
+                       </div>
+                   ) : (
+                       <div className="p-5 rounded-xl bg-gray-50 border border-gray-200 text-center">
+                           <p className="text-gray-500 text-sm">Tidak ada jadwal yang aktif saat ini.</p>
+                       </div>
+                   )}
+               </div>
+
+               {/* Charts */}
+               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-semibold flex items-center gap-2 mb-6">
+                       <BarChart3 className="w-5 h-5 text-gray-500" />
+                       Pencapaian Mingguan
+                    </h2>
+                    <div className="h-64 w-full">
+                       <ResponsiveContainer width="100%" height="100%">
+                           <BarChart data={weeklyStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                               <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
+                               <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
+                               <Tooltip 
+                                 cursor={{fill: '#f9fafb'}}
+                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                               />
+                               <Bar dataKey="completed" radius={[4, 4, 0, 0]}>
+                                 {weeklyStats.map((entry, index) => (
+                                   <Cell key={`cell-${index}`} fill={entry.date === currentDateStr ? '#10b981' : '#6366f1'} />
+                                 ))}
+                               </Bar>
+                           </BarChart>
+                       </ResponsiveContainer>
+                    </div>
+               </div>
+           </div>
+        </div>
+
         {/* Navigation / Tabs */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
           <div className="flex items-center gap-2 border-b border-white/20 pb-px mt-4">
@@ -141,11 +256,10 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full">
         {activeTab === 'today' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Column: Timeline */}
-            <div className="lg:col-span-7 flex flex-col gap-6">
+          <div className="flex flex-col gap-6">
+            {/* Left Column: Timeline -> Now Full Width Centered */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-6">
                    <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -185,7 +299,13 @@ export default function App() {
                                 "w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border transition-all cursor-pointer shadow-sm",
                                 isActive ? "bg-emerald-50/50 border-emerald-500 ring-1 ring-emerald-500" : isCompleted ? "bg-white border-emerald-500" : "bg-white border-gray-100/50 hover:border-gray-300"
                             )}
-                                  onClick={() => toggleTask(item.id)}
+                                  onClick={() => {
+                                    if (!user) {
+                                      alert("Anda harus login untuk menandai progress.");
+                                      return;
+                                    }
+                                    toggleTask(item.id);
+                                  }}
                             >
                                 <div className="flex justify-between items-start mb-1">
                                   <span className={cn(
@@ -217,101 +337,6 @@ export default function App() {
                   })}
                 </div>
             </div>
-        </div>
-
-        {/* Right Column: Status & Charts */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-            {/* Active Status Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky top-24">
-                <h2 className="text-lg font-semibold mb-4">Status Saat Ini</h2>
-                
-                {activeItem ? (
-                    <div className={cn(
-                        "p-5 rounded-xl border-l-4 transition-colors",
-                        activeItem.isBreak 
-                          ? (remainingSeconds !== null && remainingSeconds <= 60
-                              ? "bg-yellow-50 border-yellow-500"
-                              : "bg-red-50 border-[#c0392b]")
-                          : "bg-green-50 border-green-500"
-                    )}>
-                        <div className="flex items-center gap-2 mb-2 text-xs font-mono font-bold uppercase tracking-wider text-gray-500">
-                             Sedang Berlangsung {activeItem.isBreak ? "(Jeda)" : ""}
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">{activeItem.activity}</h3>
-                        <p className="text-gray-600 text-sm mb-4">{activeItem.notes}</p>
-                        
-                        {remainingSeconds !== null && (
-                            <div className={cn(
-                                "my-4 p-5 rounded-2xl border-2 flex flex-col items-center justify-center shadow-inner relative overflow-hidden group transition-colors",
-                                activeItem.isBreak 
-                                  ? (remainingSeconds <= 60 
-                                      ? "bg-gradient-to-br from-yellow-50 to-yellow-500/10 border-yellow-500/20" 
-                                      : "bg-gradient-to-br from-red-50 to-[#c0392b]/10 border-[#c0392b]/20")
-                                  : "bg-gradient-to-br from-green-50 to-green-500/10 border-green-500/20"
-                            )}>
-                                <div className={cn(
-                                  "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity",
-                                  activeItem.isBreak 
-                                      ? (remainingSeconds <= 60 ? "bg-yellow-500/5" : "bg-[#c0392b]/5")
-                                      : "bg-green-500/5"
-                                )}></div>
-                                <div className={cn(
-                                    "flex items-center gap-2 text-xs font-bold tracking-widest mb-2 uppercase transition-colors",
-                                    activeItem.isBreak 
-                                      ? (remainingSeconds <= 60 ? "text-yellow-600/80" : "text-[#c0392b]/80")
-                                      : "text-green-600/80"
-                                )}>
-                                    <Timer className="w-4 h-4 animate-pulse" />
-                                    <span>Waktu Tersisa</span>
-                                </div>
-                                <div className={cn(
-                                    "text-5xl md:text-6xl font-mono font-extrabold tracking-tighter drop-shadow-sm transition-colors",
-                                    activeItem.isBreak 
-                                      ? (remainingSeconds <= 60 ? "text-yellow-500" : "text-[#c0392b]")
-                                      : "text-green-600"
-                                )}>
-                                    {formatRemainingTime(remainingSeconds)}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-2 border-t border-black/5 mt-2">
-                             <Clock className="w-4 h-4 text-gray-400" />
-                             <span className="font-mono text-sm font-medium">{activeItem.start} - {activeItem.end} ({activeItem.duration}m)</span>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="p-5 rounded-xl bg-gray-50 border border-gray-200 text-center">
-                        <p className="text-gray-500 text-sm">Tidak ada jadwal yang aktif saat ini.</p>
-                    </div>
-                )}
-
-                <div className="mt-8">
-                     <h2 className="text-lg font-semibold flex items-center gap-2 mb-6">
-                        <BarChart3 className="w-5 h-5 text-gray-500" />
-                        Pencapaian Mingguan
-                     </h2>
-                     <div className="h-64 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
-                                <Tooltip 
-                                  cursor={{fill: '#f9fafb'}}
-                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                />
-                                <Bar dataKey="completed" radius={[4, 4, 0, 0]}>
-                                  {weeklyStats.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.date === currentDateStr ? '#10b981' : '#6366f1'} />
-                                  ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                     </div>
-                </div>
-            </div>
-          </div>
         </div>
         ) : (
           <div className="flex flex-col gap-8">
@@ -402,11 +427,28 @@ export default function App() {
           item={editingTask.item}
           onClose={() => setEditingTask(null)}
           onSave={async (updated) => {
+            if (!user) {
+              alert("Anda harus login untuk mengedit.");
+              return;
+            }
             await updateScheduleItem(editingTask.dateStr, editingTask.index, updated);
             setEditingTask(null);
           }}
         />
       )}
+
+      {/* Footer */}
+      <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 py-8 text-center mt-auto">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
+          <p>&copy; {new Date().getFullYear()} V3 Progress Tracker. All rights reserved.</p>
+          <button 
+            onClick={handleDownloadApp}
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-medium transition-colors shadow-sm text-sm"
+          >
+            Download Web App
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

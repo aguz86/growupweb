@@ -14,8 +14,13 @@ export function AuthMenu() {
   const login = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Login fail", e);
+      if (e.code === 'auth/popup-blocked') {
+         alert("Popup login diblokir oleh browser. Silakan izinkan popup untuk situs ini.");
+      } else {
+         alert("Gagal login: " + e.message + "\n\nCoba muat ulang halaman atau buka di tab baru.");
+      }
     }
   };
 
