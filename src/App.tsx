@@ -574,12 +574,12 @@ export default function App() {
                     <p>Agar alarm peringatan (suara & pop-up) dapat berjalan otomatis, pilih salah satu dari 2 metode berikut:</p>
                     <ul className="list-disc pl-5 space-y-3">
                         <li>
-                            <strong>Metode 1: Biarkan Tab Terbuka (Suara Nyaring)</strong><br/>
-                            Aplikasi web tidak dapat membunyikan suara jika Anda menutup tab. Pastikan <b>tab tetap terbuka di latar belakang</b>, tombol <b>Audio ON</b> aktif, dan Izinkan Notifikasi. Gunakan ini saat HP aktif.
+                            <strong>Metode 1: Biarkan Tab Terbuka (Suara Kustom & Suara Bicara)</strong><br/>
+                            Aplikasi web tidak dapat membunyikan suara khusus jika Anda menutup tab. Pastikan <b>tab tetap terbuka di latar belakang</b>, tombol <b>Audio ON</b> aktif, dan Izinkan Notifikasi jika Anda ingin mendengar peringatan dengan suara wanita yang berbicara.
                         </li>
                         <li>
-                            <strong>Metode 2: Alarm Meskipun Web Ditutup (Rekomendasi!)</strong><br/>
-                            Klik tombol <b><span className="text-emerald-600 bg-emerald-50 px-1 rounded inline-flex items-center gap-1 border border-emerald-200"><CalendarPlus className="w-3 h-3"/> Sinkronkan Alarm ke Kalender HP</span></b> yang ada di bawah judul "Jadwal Hari Ini". Otomatis alarm akan masuk ke Kalender HP Anda (Google/Apple) dan dijamin berbunyi 100% meskipun web ini Anda tutup seluruhnya!
+                            <strong>Metode 2: Alarm Meskipun Web Ditutup (Rekomendasi)</strong><br/>
+                            Klik tombol <b><span className="text-emerald-600 bg-emerald-50 px-1 rounded inline-flex items-center gap-1 border border-emerald-200"><CalendarPlus className="w-3 h-3"/> Sinkronkan Alarm ke Kalender HP</span></b>. Alarm akan otomatis masuk ke Aplikasi Kalender HP Anda, dijamin berbunyi 100% meskipun web ditutup. <i>Catatan: Suara alarm ini akan menggunakan suara notifikasi standar bawaan HP Anda.</i>
                         </li>
                     </ul>
                     <p className="text-xs bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-200 leading-relaxed font-medium">

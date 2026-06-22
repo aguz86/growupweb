@@ -117,12 +117,47 @@ export function useSchedule() {
 
     const unlockAudio = () => {
         if (isAudioEnabled && backgroundAudio.paused) {
-            backgroundAudio.play().catch(() => {});
+            backgroundAudio.play().then(() => {
+                // Set Media Session metadata to pretend we are an audio player
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: 'V3 Progress Tracker',
+                        artist: 'Background Alarm Service',
+                        album: 'Jaga aplikasi tetap berjalan',
+                        artwork: [
+                            { src: '/icon.jpg', sizes: '192x192', type: 'image/jpeg' },
+                            { src: '/icon.jpg', sizes: '512x512', type: 'image/jpeg' }
+                        ]
+                    });
+                    
+                    // Add dummy media session handlers to ensure OS treats it as active media
+                    navigator.mediaSession.setActionHandler('play', () => {
+                        backgroundAudio.play();
+                    });
+                    navigator.mediaSession.setActionHandler('pause', () => {
+                        // we don't want to pause, but we need to register it
+                    });
+                }
+            }).catch(() => {});
         }
     };
 
     if (isAudioEnabled) {
-        backgroundAudio.play().catch(() => {
+        backgroundAudio.play().then(() => {
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: 'V3 Progress Tracker',
+                    artist: 'Background Alarm Service',
+                    album: 'Jaga aplikasi tetap berjalan',
+                    artwork: [
+                        { src: '/icon.jpg', sizes: '192x192', type: 'image/jpeg' },
+                        { src: '/icon.jpg', sizes: '512x512', type: 'image/jpeg' }
+                    ]
+                });
+                navigator.mediaSession.setActionHandler('play', () => { backgroundAudio.play(); });
+                navigator.mediaSession.setActionHandler('pause', () => {});
+            }
+        }).catch(() => {
             // If autoplay policy blocks it, wait for user interaction:
             document.addEventListener('click', unlockAudio, { once: true });
             document.addEventListener('touchstart', unlockAudio, { once: true });
