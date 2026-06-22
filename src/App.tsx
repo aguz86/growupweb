@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus } from 'lucide-react';
+import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings } from 'lucide-react';
 import { useSchedule, playAlarmSound, speakText } from './hooks/useSchedule';
 import { cn } from './lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -40,6 +40,8 @@ export default function App() {
     setIsAudioEnabled,
     volume,
     setVolume,
+    ttsSettings,
+    updateTtsSettings,
     weeklyStats,
     getResolvedSchedule,
     updateScheduleItem,
@@ -51,6 +53,8 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<{ item: ScheduleItem, index: number, dateStr: string } | null>(null);
   const [showActivePopup, setShowActivePopup] = useState(true);
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [firebaseProxy, setFirebaseProxy] = useState(localStorage.getItem('firebase_auth_proxy') || '');
 
   const activeItemRef = useRef<HTMLDivElement>(null);
 
@@ -170,9 +174,17 @@ export default function App() {
                   onChange={(e) => {
                       setVolume(parseFloat(e.target.value));
                   }}
-                  className="w-20 accent-emerald-400 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                  className="hidden sm:block w-20 accent-emerald-400 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
                 />
             </div>
+            
+            <button
+               onClick={() => setShowSettingsModal(true)}
+               className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-white ml-2 flex-shrink-0"
+               title="Pengaturan Alarm & Notifikasi"
+            >
+               <Settings className="w-5 h-5" />
+            </button>
           </div>
           
           <AuthMenu />
@@ -592,6 +604,98 @@ export default function App() {
                 >
                     Mengerti & Lanjutkan
                 </button>
+            </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors z-10"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-3 mb-6 shrink-0">
+                    <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <Settings className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900">Pengaturan</h2>
+                </div>
+                
+                <div className="overflow-y-auto flex-grow pr-2 space-y-6">
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Teks Notifikasi Saat Sesi Dimulai</h3>
+                        <p className="text-xs text-gray-500 mb-2">Gunakan <code>{`{{activity}}`}</code> untuk nama aktivitas, dan <code>{`{{duration}}`}</code> untuk durasi (menit).</p>
+                        <textarea 
+                            className="w-full text-sm p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors"
+                            rows={3}
+                            value={ttsSettings.start}
+                            onChange={(e) => updateTtsSettings('start', e.target.value)}
+                        />
+                    </div>
+                    
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Teks Notifikasi Pertengahan Sesi</h3>
+                        <p className="text-xs text-gray-500 mb-2">Gunakan <code>{`{{activity}}`}</code> untuk nama aktivitas.</p>
+                        <textarea 
+                            className="w-full text-sm p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors"
+                            rows={3}
+                            value={ttsSettings.half}
+                            onChange={(e) => updateTtsSettings('half', e.target.value)}
+                        />
+                    </div>
+                    
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Teks Notifikasi Sesi Akan Berakhir</h3>
+                        <p className="text-xs text-gray-500 mb-2">Gunakan <code>{`{{activity}}`}</code> untuk nama aktivitas, dan <code>{`{{nextActivity}}`}</code> untuk nama aktivitas selanjutnya.</p>
+                        <textarea 
+                            className="w-full text-sm p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors"
+                            rows={3}
+                            value={ttsSettings.end}
+                            onChange={(e) => updateTtsSettings('end', e.target.value)}
+                        />
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2">Firebase Auth Proxy Domain</h3>
+                        <p className="text-xs text-gray-500 mb-2">Jika Anda mengalami error <code>auth/unauthorized-domain</code>, masukkan full URL proxy Cloudflare Worker Anda di sini (misal: <code>auth-proxy.username.workers.dev</code> tanpa protokol https). Halaman perlu direfresh setelah diubah.</p>
+                        <input
+                            type="text"
+                            placeholder="auth-proxy.username.workers.dev"
+                            className="w-full text-sm p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors"
+                            value={firebaseProxy}
+                            onChange={(e) => setFirebaseProxy(e.target.value)}
+                        />
+                    </div>
+                </div>
+                
+                <div className="pt-4 mt-2 border-t border-gray-100 shrink-0 flex gap-3">
+                    <button 
+                      onClick={() => {
+                        const currentVal = localStorage.getItem('firebase_auth_proxy') || "";
+                        if (currentVal !== firebaseProxy) {
+                            if (firebaseProxy.trim() === "") {
+                                localStorage.removeItem('firebase_auth_proxy');
+                            } else {
+                                // Clean up URL (remove https://, etc)
+                                let cleaned = firebaseProxy.trim();
+                                cleaned = cleaned.replace(/^https?:\/\//, '');
+                                cleaned = cleaned.replace(/\/$/, '');
+                                localStorage.setItem('firebase_auth_proxy', cleaned);
+                            }
+                            window.location.reload();
+                        } else {
+                            setShowSettingsModal(false);
+                        }
+                      }}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all active:scale-95"
+                    >
+                        Tutup & Simpan
+                    </button>
+                </div>
             </div>
         </div>
       )}

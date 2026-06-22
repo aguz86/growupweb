@@ -101,6 +101,20 @@ export function useSchedule() {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [volume, setVolume] = useState(0.8);
+  const [ttsSettings, setTtsSettings] = useState({
+      start: localStorage.getItem('tts_start') || 'Sesi {{activity}} telah dimulai. Durasi sesi ini adalah {{duration}} menit. Mari tetap disiplin dan fokus.',
+      half: localStorage.getItem('tts_half') || 'Perhatian. Anda sudah berada di pertengahan sesi {{activity}}.',
+      end: localStorage.getItem('tts_end') || 'Satu menit lagi sesi ini berakhir. Selanjutnya adalah waktunya {{nextActivity}}.'
+  });
+  
+  const updateTtsSettings = (key: 'start' | 'half' | 'end', value: string) => {
+      setTtsSettings(prev => {
+          const next = { ...prev, [key]: value };
+          localStorage.setItem(`tts_${key}`, value);
+          return next;
+      });
+  };
+
   const [lastSpeechId, setLastSpeechId] = useState<string | null>(null);
   const previousItemRef = useRef<string | null>(null);
 
@@ -309,7 +323,10 @@ export function useSchedule() {
               if (isAudioEnabled && lastSpeechId !== startAlarmId) {
                   setLastSpeechId(startAlarmId);
                   playAlarmSound(volume);
-                  const msg = `Sesi ${item.activity} telah dimulai. Durasi sesi ini adalah ${item.duration} menit. Mari tetap disiplin dan fokus sampai sesi berakhir.`;
+                  let msg = ttsSettings.start;
+                  msg = msg.replace('{{activity}}', item.activity);
+                  msg = msg.replace('{{duration}}', item.duration.toString());
+                  
                   sendLocalNotification(`Sesi Dimulai: ${item.activity}`, msg);
                   setTimeout(() => {
                       speakText(msg, volume);
@@ -324,7 +341,9 @@ export function useSchedule() {
               if (isAudioEnabled && lastSpeechId !== halfAlarmId) {
                   setLastSpeechId(halfAlarmId);
                   playAlarmSound(volume);
-                  const msg = `Perhatian. Anda sudah berada di pertengahan sesi ${item.activity}. Tetap disiplin dan patuhi waktu.`;
+                  let msg = ttsSettings.half;
+                  msg = msg.replace('{{activity}}', item.activity);
+                  
                   sendLocalNotification(`Pertengahan Sesi`, msg);
                   setTimeout(() => {
                       speakText(msg, volume);
@@ -360,7 +379,10 @@ export function useSchedule() {
                       }, 3500);
                   } else if (!item.isBreak && isNextImmediatelyAfter) {
                       playAlarmSound(volume);
-                      const msg = `Perhatian-perhatian. Satu menit lagi sesi ini berakhir. Selanjutnya adalah waktunya ${nextItem.activity}.`;
+                      let msg = ttsSettings.end;
+                      msg = msg.replace('{{activity}}', item.activity);
+                      msg = msg.replace('{{nextActivity}}', nextItem.activity);
+                      
                       sendLocalNotification("Persiapan Sesi Berikutnya", `1 Menit menuju ${nextItem.activity}`);
                       setTimeout(() => {
                           speakText(msg, volume);
@@ -453,6 +475,8 @@ export function useSchedule() {
     setIsAudioEnabled,
     volume,
     setVolume,
+    ttsSettings,
+    updateTtsSettings,
     weeklyStats: getWeeklyStats(),
     getResolvedSchedule,
     updateScheduleItem,
