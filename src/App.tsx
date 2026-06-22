@@ -559,18 +559,18 @@ export default function App() {
       {/* Permission Guide Popup */}
       {showPermissionGuide && (
         <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 relative animate-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 relative animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
                 <button 
                   onClick={() => setShowPermissionGuide(false)}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors z-10"
                 >
                     <X className="w-5 h-5" />
                 </button>
-                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4 shrink-0">
                     <Activity className="w-6 h-6 text-emerald-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Panduan Penggunaan</h2>
-                <div className="text-sm text-gray-600 space-y-4 mb-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-2 shrink-0">Panduan Penggunaan</h2>
+                <div className="text-sm text-gray-600 space-y-4 mb-6 overflow-y-auto pr-2 flex-grow">
                     <p>Agar alarm peringatan (suara & pop-up) dapat berjalan otomatis, pilih salah satu dari 2 metode berikut:</p>
                     <ul className="list-disc pl-5 space-y-3">
                         <li>
@@ -588,7 +588,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={() => setShowPermissionGuide(false)}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all active:scale-95"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all active:scale-95 shrink-0"
                 >
                     Mengerti & Lanjutkan
                 </button>

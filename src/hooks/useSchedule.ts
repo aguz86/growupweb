@@ -269,7 +269,7 @@ export function useSchedule() {
 
   // Timer loop for active item & alarms
   useEffect(() => {
-    const clock = setInterval(() => {
+    const tick = () => {
       const now = new Date();
       // If passing midnight, date string might need an update
       const actualDateStr = format(now, 'yyyy-MM-dd');
@@ -374,11 +374,45 @@ export function useSchedule() {
 
       setActiveItemId(foundActive);
       setRemainingSeconds(remSec);
-      
-    }, 1000);
+    };
 
-    return () => clearInterval(clock);
-  }, [currentDateStr, isAudioEnabled, lastSpeechId, volume]);
+    let worker: Worker | null = null;
+    let fallbackId: any = null;
+
+    if (window.Worker) {
+        const code = `
+            let intervalId = null;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    if (!intervalId) {
+                        intervalId = setInterval(function() {
+                            self.postMessage('tick');
+                        }, 1000);
+                    }
+                } else if (e.data === 'stop') {
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                }
+            };
+        `;
+        const blob = new Blob([code], { type: 'application/javascript' });
+        worker = new Worker(URL.createObjectURL(blob));
+        worker.onmessage = () => tick();
+        worker.postMessage('start');
+    } else {
+        fallbackId = setInterval(tick, 1000);
+    }
+
+    return () => {
+        if (worker) {
+            worker.postMessage('stop');
+            worker.terminate();
+        }
+        if (fallbackId) clearInterval(fallbackId);
+    };
+  }, [currentDateStr, isAudioEnabled, lastSpeechId, volume, customSchedules]);
 
   const getWeeklyStats = () => {
     const stats = [];
