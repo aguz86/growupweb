@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, googleProvider } from "../lib/firebase";
-import { signInWithPopup, signOut, User } from "firebase/auth";
+import { signInWithRedirect, signOut, User } from "firebase/auth";
 import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
 export function AuthMenu() {
@@ -13,9 +13,10 @@ export function AuthMenu() {
 
   const login = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (e) {
+      await signInWithRedirect(auth, googleProvider);
+    } catch (e: any) {
       console.error("Login fail", e);
+      alert(`Gagal login: ${e.message}`);
     }
   };
 
