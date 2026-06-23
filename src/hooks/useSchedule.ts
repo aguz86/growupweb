@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { format, parse, addDays } from 'date-fns';
+import { format, parse, addDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { getScheduleForDate, ScheduleItem } from '../data/schedule';
 import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -464,6 +464,51 @@ export function useSchedule() {
     return stats;
   };
 
+  const getCurrentWeekAnalytics = () => {
+    const today = new Date();
+    const start = startOfWeek(today, { weekStartsOn: 1 }); // Monday
+    const end = endOfWeek(today, { weekStartsOn: 1 }); // Sunday
+    const days = eachDayOfInterval({ start, end });
+
+    const activityMap: Record<string, number> = {};
+
+    days.forEach(d => {
+        const schedule = getResolvedSchedule(d);
+        schedule.forEach(item => {
+            if (!item.isBreak) {
+                if (!activityMap[item.activity]) {
+                    activityMap[item.activity] = 0;
+                }
+                activityMap[item.activity] += item.duration;
+            }
+        });
+    });
+
+    const colors = [
+      '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', 
+      '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', 
+      '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', 
+      '#ec4899', '#f43f5e', '#9f1239', '#7c2d12', '#3f6212',
+      '#064e3b', '#1e3a8a', '#4c1d95', '#0f766e', '#b45309',
+      '#475569', '#334155'
+    ];
+    
+    // Simple hash function to ensure consistent colors for the same activity name
+    const getHash = (str: string) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return Math.abs(hash);
+    };
+
+    return Object.keys(activityMap).map((key) => ({
+        name: key,
+        value: activityMap[key],
+        color: colors[getHash(key) % colors.length]
+    })).sort((a, b) => b.value - a.value);
+  };
+
   return {
     currentDateStr,
     todaySchedule: getResolvedSchedule(new Date(currentDateStr)),
@@ -478,6 +523,7 @@ export function useSchedule() {
     ttsSettings,
     updateTtsSettings,
     weeklyStats: getWeeklyStats(),
+    getCurrentWeekAnalytics,
     getResolvedSchedule,
     updateScheduleItem,
     loadScheduleForDate,

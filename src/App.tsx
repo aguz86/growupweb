@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings } from 'lucide-react';
+import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings, PieChart as PieChartIcon } from 'lucide-react';
 import { useSchedule, playAlarmSound, speakText } from './hooks/useSchedule';
 import { cn } from './lib/utils';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie, Sector } from 'recharts';
 import { useEffect, useRef, useState } from 'react';
 import { addDays, format, parse } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -43,12 +43,13 @@ export default function App() {
     ttsSettings,
     updateTtsSettings,
     weeklyStats,
+    getCurrentWeekAnalytics,
     getResolvedSchedule,
     updateScheduleItem,
     user
   } = useSchedule();
 
-  const [activeTab, setActiveTab] = useState<'today' | 'upcoming'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'analytics'>('today');
   const [selectedUpcomingDate, setSelectedUpcomingDate] = useState<string>(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
   const [editingTask, setEditingTask] = useState<{ item: ScheduleItem, index: number, dateStr: string } | null>(null);
   const [showActivePopup, setShowActivePopup] = useState(true);
@@ -133,6 +134,44 @@ export default function App() {
           alert("Untuk menginstall app ini, silakan gunakan fitur 'Add to Home Screen' atau 'Install App' di menu browser Anda (biasanya terletak di titik tiga pojok kanan atas atau icon share di iOS). Pada beberapa browser tertentu, Anda mungkin juga perlu memastikan telah menerima cookie.");
       }
   };
+
+  const renderCustomizedLabel = (props: any) => {
+    const RADIAN = Math.PI / 180;
+    const { cx, cy, midAngle, innerRadius, outerRadius, fill, percent, value, name } = props;
+    const sin = Math.sin(-RADIAN * midAngle);
+    const cos = Math.cos(-RADIAN * midAngle);
+    const sx = cx + (outerRadius + 5) * cos;
+    const sy = cy + (outerRadius + 5) * sin;
+    const mx = cx + (outerRadius + 25) * cos;
+    const my = cy + (outerRadius + 25) * sin;
+    const ex = mx + (cos >= 0 ? 1 : -1) * 20;
+    const ey = my;
+    const textAnchor = cos >= 0 ? 'start' : 'end';
+
+    const hours = Math.floor(value / 60);
+    const mins = value % 60;
+    const timeStr = hours > 0 ? `${hours}j ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
+
+    if (percent < 0.05 && name !== 'Sisa Waktu') return null; // Hide labels for very small slices to avoid overlap
+
+    return (
+      <g>
+        <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" strokeWidth={2} opacity={0.7} />
+        <circle cx={ex} cy={ey} r={4} fill={fill} stroke="none" />
+        <text x={ex + (cos >= 0 ? 1 : -1) * 8} y={ey - 10} textAnchor={textAnchor} fill="#333" className="font-bold text-xs sm:text-sm drop-shadow-sm">
+          {name}
+        </text>
+        <text x={ex + (cos >= 0 ? 1 : -1) * 8} y={ey + 6} textAnchor={textAnchor} fill="#444" className="text-[10px] sm:text-xs font-bold">
+          {timeStr}
+        </text>
+        <text x={ex + (cos >= 0 ? 1 : -1) * 8} y={ey + 20} textAnchor={textAnchor} fill="#666" className="text-[9px] sm:text-[10px] font-medium">
+          {`(${(percent * 100).toFixed(1)}%)`}
+        </text>
+      </g>
+    );
+  };
+
+  const weekPieData = getCurrentWeekAnalytics();
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-red-100 selection:text-red-900 flex flex-col overflow-x-hidden">
@@ -219,12 +258,24 @@ export default function App() {
               <CalendarDays className="w-4 h-4" />
               6 Hari Kedepan
             </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 border-b-2 transition-colors font-medium text-sm rounded-t-lg whitespace-nowrap",
+                activeTab === 'analytics' 
+                  ? "bg-white border-white text-emerald-700" 
+                  : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20"
+              )}
+            >
+              <PieChartIcon className="w-4 h-4" />
+              Analisis Waktu
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {activeTab === 'today' ? (
+        {activeTab === 'today' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column: Timeline */}
             <div className="lg:col-span-7 flex flex-col gap-6">
@@ -404,7 +455,9 @@ export default function App() {
             </div>
           </div>
         </div>
-        ) : (
+        )}
+        
+        {activeTab === 'upcoming' && (
           <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
             <div className="flex flex-col gap-2 bg-white p-4 rounded-xl shadow-sm border border-emerald-100">
                 <div className="flex items-start gap-3">
@@ -504,6 +557,45 @@ export default function App() {
                     </div>
                 );
             })()}
+          </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center">
+            <div className="flex flex-col items-center gap-2 mb-6 text-center">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                <PieChartIcon className="w-6 h-6 text-emerald-600" />
+                Alokasi Waktu (Minggu Ini)
+              </h2>
+              <p className="text-sm text-gray-500">Mulai Senin hingga Hari Ini.</p>
+              {weekPieData.length === 0 && <p className="text-sm text-red-500 mt-2 font-medium">Belum ada data jadwal.</p>}
+            </div>
+
+            {weekPieData.length > 0 && (
+              <div className="w-full h-[400px] sm:h-[500px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart margin={{ top: 40, right: 80, bottom: 40, left: 80 }}>
+                    <Pie
+                      data={weekPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="35%"
+                      outerRadius="55%"
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={renderCustomizedLabel}
+                      labelLine={false}
+                      paddingAngle={4}
+                      style={{ filter: "drop-shadow(4px 8px 12px rgba(0,0,0,0.3))" }}
+                    >
+                      {weekPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         )}
       </main>
