@@ -16,7 +16,11 @@ export function AuthMenu() {
       await signInWithPopup(auth, googleProvider);
     } catch (e: any) {
       console.error("Login fail", e);
-      alert(`Gagal login: ${e.message}`);
+      if (e.code === 'auth/unauthorized-domain' || (e.message && e.message.includes('auth/unauthorized-domain'))) {
+        alert(`Akses Login Ditolak (auth/unauthorized-domain).\n\nLangkah perbaikan:\n1. Buka Firebase Console\n2. Buka Authentication -> Settings -> Authorized domains\n3. Klik "Add domain" dan masukkan URL berikut:\n\n${window.location.hostname}\n\nSetelah ditambahkan, coba login kembali.`);
+      } else {
+        alert(`Gagal login: ${e.message}`);
+      }
     }
   };
 

@@ -364,9 +364,7 @@ export default function App() {
                     <div className={cn(
                         "p-5 rounded-xl border-l-4 transition-colors",
                         activeItem.isBreak 
-                          ? (remainingSeconds !== null && remainingSeconds <= 60
-                              ? "bg-yellow-50 border-yellow-500"
-                              : "bg-red-50 border-[#c0392b]")
+                          ? "bg-red-50 border-[#c0392b]"
                           : "bg-green-50 border-green-500"
                     )}>
                         <div className="flex items-center gap-2 mb-2 text-xs font-mono font-bold uppercase tracking-wider text-gray-500">
@@ -379,21 +377,19 @@ export default function App() {
                             <div className={cn(
                                 "my-4 p-5 rounded-2xl border-2 flex flex-col items-center justify-center shadow-inner relative overflow-hidden group transition-colors",
                                 activeItem.isBreak 
-                                  ? (remainingSeconds <= 60 
-                                      ? "bg-gradient-to-br from-yellow-50 to-yellow-500/10 border-yellow-500/20" 
-                                      : "bg-gradient-to-br from-red-50 to-[#c0392b]/10 border-[#c0392b]/20")
+                                  ? "bg-gradient-to-br from-red-50 to-[#c0392b]/10 border-[#c0392b]/20"
                                   : "bg-gradient-to-br from-green-50 to-green-500/10 border-green-500/20"
                             )}>
                                 <div className={cn(
                                   "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity",
                                   activeItem.isBreak 
-                                      ? (remainingSeconds <= 60 ? "bg-yellow-500/5" : "bg-[#c0392b]/5")
+                                      ? "bg-[#c0392b]/5"
                                       : "bg-green-500/5"
                                 )}></div>
                                 <div className={cn(
                                     "flex items-center gap-2 text-xs font-bold tracking-widest mb-2 uppercase transition-colors",
                                     activeItem.isBreak 
-                                      ? (remainingSeconds <= 60 ? "text-yellow-600/80" : "text-[#c0392b]/80")
+                                      ? "text-[#c0392b]/80"
                                       : "text-green-600/80"
                                 )}>
                                     <Timer className="w-4 h-4 animate-pulse" />
@@ -402,7 +398,7 @@ export default function App() {
                                 <div className={cn(
                                     "text-5xl md:text-6xl font-mono font-extrabold tracking-tighter drop-shadow-sm transition-colors",
                                     activeItem.isBreak 
-                                      ? (remainingSeconds <= 60 ? "text-yellow-500" : "text-[#c0392b]")
+                                      ? "text-[#c0392b]"
                                       : "text-green-600"
                                 )}>
                                     {formatRemainingTime(remainingSeconds)}
@@ -711,14 +707,14 @@ export default function App() {
             <div className={cn(
                 "p-8 sm:p-10 md:p-8 lg:p-12 border-l-8 md:border-l-8",
                 activeItem.isBreak 
-                    ? (remainingSeconds !== null && remainingSeconds <= 60 ? "border-yellow-500 bg-yellow-50/50" : "border-[#c0392b] bg-red-50/50")
+                    ? "border-[#c0392b] bg-red-50/50"
                     : "border-emerald-500 bg-emerald-50/50"
             )}>
                 <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-4 pr-20 md:pr-0">
                     <Activity className={cn(
                         "w-8 h-8 sm:w-10 sm:h-10 md:w-8 md:h-8 lg:w-10 lg:h-10 animate-pulse shrink-0",
                         activeItem.isBreak 
-                            ? (remainingSeconds !== null && remainingSeconds <= 60 ? "text-yellow-600" : "text-[#c0392b]")
+                            ? "text-[#c0392b]"
                             : "text-emerald-600"
                     )} />
                     <span className="text-2xl sm:text-3xl md:text-xl lg:text-3xl font-bold uppercase tracking-wider text-gray-500 leading-tight">
@@ -735,7 +731,7 @@ export default function App() {
                         <div className={cn(
                             "font-mono font-bold text-[5rem] sm:text-[6rem] md:text-6xl lg:text-8xl xl:text-[8rem] tracking-tighter drop-shadow-sm leading-none",
                             activeItem.isBreak 
-                                ? (remainingSeconds <= 60 ? "text-yellow-600" : "text-[#c0392b]")
+                                ? "text-[#c0392b]"
                                 : "text-emerald-700"
                         )}>
                             {formatRemainingTime(remainingSeconds)}
