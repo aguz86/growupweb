@@ -8,6 +8,10 @@ export type ScheduleItem = {
   isBreak: boolean;
 };
 
+const commonMorningSleep: Omit<ScheduleItem, 'id'>[] = [
+  { start: '00:00', end: '05:00', duration: 300, activity: 'Waktunya Tidur', notes: 'Istirahat Malam.', isBreak: false },
+];
+
 const commonEveningSchedule: Omit<ScheduleItem, 'id'>[] = [
   { start: '16:40', end: '17:00', duration: 20, activity: 'Arrive Home', notes: 'Tiba di rumah.', isBreak: false },
   { start: '17:00', end: '17:25', duration: 25, activity: 'Masak & Mandi', notes: 'Kebersihan dan persiapan energi.', isBreak: false },
@@ -29,10 +33,11 @@ const commonEveningSchedule: Omit<ScheduleItem, 'id'>[] = [
   { start: '22:50', end: '23:10', duration: 20, activity: 'Jeda Istirahat + Masak', notes: 'Persiapan bekal.', isBreak: true },
   { start: '23:10', end: '23:30', duration: 20, activity: 'Job Reward Recehan', notes: 'Fokus tugas mikro (20 Menit).', isBreak: false },
   { start: '23:30', end: '23:50', duration: 20, activity: 'Wind Down', notes: 'Persiapan tidur malam.', isBreak: false },
-  { start: '23:50', end: '05:00', duration: 310, activity: 'Waktunya Tidur', notes: 'Istirahat Malam.', isBreak: false },
+  { start: '23:50', end: '00:00', duration: 10, activity: 'Waktunya Tidur', notes: 'Mulai Istirahat Malam.', isBreak: false },
 ];
 
 export const weekdaySchedule: ScheduleItem[] = [
+  ...commonMorningSleep,
   ...[
     { start: '05:00', end: '05:20', duration: 20, activity: 'Ibadah Subuh', notes: 'Fokus Ibadah.', isBreak: false },
     { start: '05:20', end: '06:15', duration: 55, activity: 'Tidur Lanjut', notes: 'Istirahat Tahap 2.', isBreak: false },
@@ -45,6 +50,7 @@ export const weekdaySchedule: ScheduleItem[] = [
 ].map((item, index) => ({ ...item, id: `wd-${index}` }));
 
 export const saturdaySchedule: ScheduleItem[] = [
+  ...commonMorningSleep,
   ...[
     { start: '05:00', end: '05:20', duration: 20, activity: 'Ibadah Subuh', notes: 'Fokus Ibadah.', isBreak: false },
     { start: '05:20', end: '06:15', duration: 55, activity: 'Tidur Lanjut', notes: 'Istirahat Tahap 2.', isBreak: false },
@@ -59,17 +65,40 @@ export const saturdaySchedule: ScheduleItem[] = [
     { start: '16:10', end: '16:30', duration: 20, activity: 'Job Receh/Promosi', notes: 'Tugas online.', isBreak: false },
     { start: '16:30', end: '16:40', duration: 10, activity: 'Jeda', notes: 'Persiapan akhir pekan.', isBreak: true },
   ],
-  ...commonEveningSchedule
+  // Wait, if Sunday starts at 00:00 with "Jam Santai", then Saturday night should prep for that!
+  ...[
+    { start: '16:40', end: '17:00', duration: 20, activity: 'Arrive Home', notes: 'Tiba di rumah.', isBreak: false },
+    { start: '17:00', end: '17:25', duration: 25, activity: 'Masak & Mandi', notes: 'Kebersihan dan persiapan energi.', isBreak: false },
+    { start: '17:25', end: '17:50', duration: 25, activity: 'Rekap Finansial', notes: 'Catat pengeluaran & cek portofolio harian.', isBreak: false },
+    { start: '17:50', end: '18:10', duration: 20, activity: 'Ibadah Maghrib', notes: 'Durasi 20 Menit.', isBreak: false },
+    { start: '18:10', end: '18:35', duration: 25, activity: 'Airdrop Session', notes: 'Sesi rutin harian (check-in/daily tasks).', isBreak: false },
+    { start: '18:35', end: '18:50', duration: 15, activity: 'Jeda Makan Malam', notes: 'Waktu untuk makan malam (15 Menit).', isBreak: true },
+    { start: '18:50', end: '19:00', duration: 10, activity: 'Ibadah Isya', notes: 'Fokus ibadah (10 menit).', isBreak: false },
+    { start: '19:00', end: '19:50', duration: 50, activity: 'Kursus Marketing', notes: 'Fokus Belajar Intensif (50 Menit).', isBreak: false },
+    { start: '19:50', end: '20:00', duration: 10, activity: 'Jeda Istirahat', notes: 'Minum air putih & jalan.', isBreak: true },
+    { start: '20:00', end: '20:30', duration: 30, activity: 'Programming Basic', notes: 'Penguatan logika/fondasi koding (30 Menit).', isBreak: false },
+    { start: '20:30', end: '20:40', duration: 10, activity: 'Jeda Istirahat', notes: 'Penyegaran mental.', isBreak: true },
+    { start: '20:40', end: '21:10', duration: 30, activity: 'Vibecoding', notes: 'Koding santai/flow state (30 Menit).', isBreak: false },
+    { start: '21:10', end: '21:20', duration: 10, activity: 'Jeda Istirahat', notes: 'Relaksasi sejenak.', isBreak: true },
+    { start: '21:20', end: '21:50', duration: 30, activity: 'Eksperimen', notes: 'Sesi eksplorasi bebas (30 Menit).', isBreak: false },
+    { start: '21:50', end: '22:20', duration: 30, activity: 'Kursus Desain', notes: 'Fokus Desain (30 Menit).', isBreak: false },
+    { start: '22:20', end: '22:30', duration: 10, activity: 'Jeda Istirahat', notes: 'Relaksasi mata.', isBreak: true },
+    { start: '22:30', end: '22:50', duration: 20, activity: 'YouTube Short Production', notes: 'Editing video (20 Menit).', isBreak: false },
+    { start: '22:50', end: '23:10', duration: 20, activity: 'Jeda Istirahat + Masak', notes: 'Persiapan bekal.', isBreak: true },
+    { start: '23:10', end: '23:30', duration: 20, activity: 'Job Reward Recehan', notes: 'Fokus tugas mikro (20 Menit).', isBreak: false },
+    { start: '23:30', end: '23:50', duration: 20, activity: 'Wind Down', notes: 'Persiapan tidur malam.', isBreak: false },
+    { start: '23:50', end: '00:00', duration: 10, activity: 'Jam Santai', notes: 'Malam minggu santai.', isBreak: false }
+  ]
 ].map((item, index) => ({ ...item, id: `sat-${index}` }));
 
 export const sundaySchedule: ScheduleItem[] = [
   ...[
-    { start: '00:10', end: '01:00', duration: 50, activity: 'Jam Santai', notes: 'Waktu luang.', isBreak: false },
+    { start: '00:00', end: '01:00', duration: 60, activity: 'Jam Santai', notes: 'Waktu luang.', isBreak: false },
     { start: '01:00', end: '01:15', duration: 15, activity: 'Stop & Persiapan Tidur', notes: 'Wind down.', isBreak: false },
     { start: '01:15', end: '05:00', duration: 225, activity: 'Tidur Dini Hari', notes: 'Istirahat malam.', isBreak: false },
     { start: '05:00', end: '05:20', duration: 20, activity: 'Ibadah Subuh', notes: 'Fokus Ibadah.', isBreak: false },
     { start: '05:20', end: '08:30', duration: 190, activity: 'Lanjut Tidur', notes: 'Istirahat akhir pekan.', isBreak: false },
-    { start: '08:30', end: '09:10', duration: 40, activity: 'Jam Santai', notes: 'Santai pagi.', isBreak: false },
+    { start: '08:30', end: '09:10', duration: 40, activity: 'Jam Santai Pagi', notes: 'Santai pagi.', isBreak: false },
     { start: '09:10', end: '09:50', duration: 40, activity: 'Mandi & Service Motor', notes: 'Perawatan.', isBreak: false },
     { start: '09:50', end: '10:00', duration: 10, activity: 'Jeda', notes: 'Istirahat.', isBreak: true },
     { start: '10:00', end: '10:50', duration: 50, activity: 'Vibecoding Jargonpayment', notes: 'Fokus coding.', isBreak: false },
@@ -98,4 +127,5 @@ export const getScheduleForDate = (date: Date): ScheduleItem[] => {
 
 // Deprecated fallback for compatibility if someone still uses it, but prefer getScheduleForDate
 export const scheduleData: ScheduleItem[] = weekdaySchedule;
+
 

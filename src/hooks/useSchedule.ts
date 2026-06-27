@@ -210,6 +210,51 @@ export function useSchedule() {
     });
   };
 
+  const performWeeklyReset = () => {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        if (key.startsWith('productivity_') || key.startsWith('custom_schedule_')) {
+          keysToRemove.push(key);
+        }
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    setProgress({});
+    setCustomSchedules({});
+  };
+
+  const checkAndRunWeeklyReset = () => {
+    const now = new Date();
+    const currentWeekStr = format(now, 'I-RRRR'); // e.g. "26-2026"
+    const lastResetWeek = localStorage.getItem('last_weekly_reset_week');
+
+    if (!lastResetWeek) {
+      localStorage.setItem('last_weekly_reset_week', currentWeekStr);
+      return;
+    }
+
+    // Reset precisely at Sunday 23:59 or when the week identifier shifts (e.g. they open on Monday)
+    const isSunday2359 = now.getDay() === 0 && now.getHours() === 23 && now.getMinutes() === 59;
+
+    if (isSunday2359 || lastResetWeek !== currentWeekStr) {
+      performWeeklyReset();
+      localStorage.setItem('last_weekly_reset_week', currentWeekStr);
+      
+      if (isAudioEnabled) {
+        playAlarmSound(volume);
+        speakText("Perhatian, jadwal pekan ini telah selesai. Mengatur ulang diagram dan riwayat tugas untuk pekan baru.", volume);
+      }
+      sendLocalNotification("Reset Mingguan Otomatis", "Diagram dan progres mingguan telah berhasil diatur ulang.");
+    }
+  };
+
+  // Run initial check on mount
+  useEffect(() => {
+    checkAndRunWeeklyReset();
+  }, []);
+
   const [customSchedules, setCustomSchedules] = useState<Record<string, ScheduleItem[]>>({});
   const [user, setUser] = useState(auth.currentUser);
 
@@ -290,6 +335,9 @@ export function useSchedule() {
       if (actualDateStr !== currentDateStr) {
         setCurrentDateStr(actualDateStr);
       }
+
+      // Check weekly reset at 23:59:00 on Sunday or when week shifts
+      checkAndRunWeeklyReset();
 
       let foundActive: string | null = null;
       let remSec: number | null = null;
@@ -471,6 +519,7 @@ export function useSchedule() {
     const days = eachDayOfInterval({ start, end });
 
     const activityMap: Record<string, number> = {};
+    let totalScheduledMinutes = 0;
 
     days.forEach(d => {
         const schedule = getResolvedSchedule(d);
@@ -480,9 +529,21 @@ export function useSchedule() {
                     activityMap[item.activity] = 0;
                 }
                 activityMap[item.activity] += item.duration;
+            } else {
+                if (!activityMap['Waktu Istirahat (Break)']) {
+                    activityMap['Waktu Istirahat (Break)'] = 0;
+                }
+                activityMap['Waktu Istirahat (Break)'] += item.duration;
             }
+            totalScheduledMinutes += item.duration;
         });
     });
+
+    const TOTAL_WEEK_MINUTES = 7 * 24 * 60; // 10080
+    const unallocatedMinutes = Math.max(0, TOTAL_WEEK_MINUTES - totalScheduledMinutes);
+    if (unallocatedMinutes > 0) {
+        activityMap['Waktu Kosong (Tak Terjadwal)'] = unallocatedMinutes;
+    }
 
     const colors = [
       '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', 
@@ -502,11 +563,23 @@ export function useSchedule() {
         return Math.abs(hash);
     };
 
-    return Object.keys(activityMap).map((key) => ({
-        name: key,
-        value: activityMap[key],
-        color: colors[getHash(key) % colors.length]
-    })).sort((a, b) => b.value - a.value);
+    return Object.keys(activityMap).map((key) => {
+        let color = colors[getHash(key) % colors.length];
+        if (key === 'Waktu Kosong (Tak Terjadwal)') color = '#e2e8f0'; // slate-200
+        else if (key === 'Waktu Istirahat (Break)') color = '#93c5fd'; // blue-300
+
+        return {
+            name: key,
+            value: activityMap[key],
+            color
+        };
+    }).sort((a, b) => {
+        if (a.name === 'Waktu Kosong (Tak Terjadwal)') return 1;
+        if (b.name === 'Waktu Kosong (Tak Terjadwal)') return -1;
+        if (a.name === 'Waktu Istirahat (Break)') return 1;
+        if (b.name === 'Waktu Istirahat (Break)') return -1;
+        return b.value - a.value;
+    });
   };
 
   return {

@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings, PieChart as PieChartIcon } from 'lucide-react';
+import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings, PieChart as PieChartIcon, ListTodo, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { useSchedule, playAlarmSound, speakText } from './hooks/useSchedule';
 import { cn } from './lib/utils';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie, Sector } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { useEffect, useRef, useState } from 'react';
 import { addDays, format, parse } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -135,43 +135,15 @@ export default function App() {
       }
   };
 
-  const renderCustomizedLabel = (props: any) => {
-    const RADIAN = Math.PI / 180;
-    const { cx, cy, midAngle, innerRadius, outerRadius, fill, percent, value, name } = props;
-    const sin = Math.sin(-RADIAN * midAngle);
-    const cos = Math.cos(-RADIAN * midAngle);
-    const sx = cx + (outerRadius + 5) * cos;
-    const sy = cy + (outerRadius + 5) * sin;
-    const mx = cx + (outerRadius + 25) * cos;
-    const my = cy + (outerRadius + 25) * sin;
-    const ex = mx + (cos >= 0 ? 1 : -1) * 20;
-    const ey = my;
-    const textAnchor = cos >= 0 ? 'start' : 'end';
-
-    const hours = Math.floor(value / 60);
-    const mins = value % 60;
-    const timeStr = hours > 0 ? `${hours}j ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
-
-    if (percent < 0.05 && name !== 'Sisa Waktu') return null; // Hide labels for very small slices to avoid overlap
-
-    return (
-      <g>
-        <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" strokeWidth={2} opacity={0.7} />
-        <circle cx={ex} cy={ey} r={4} fill={fill} stroke="none" />
-        <text x={ex + (cos >= 0 ? 1 : -1) * 8} y={ey - 10} textAnchor={textAnchor} fill="#333" className="font-bold text-xs sm:text-sm drop-shadow-sm">
-          {name}
-        </text>
-        <text x={ex + (cos >= 0 ? 1 : -1) * 8} y={ey + 6} textAnchor={textAnchor} fill="#444" className="text-[10px] sm:text-xs font-bold">
-          {timeStr}
-        </text>
-        <text x={ex + (cos >= 0 ? 1 : -1) * 8} y={ey + 20} textAnchor={textAnchor} fill="#666" className="text-[9px] sm:text-[10px] font-medium">
-          {`(${(percent * 100).toFixed(1)}%)`}
-        </text>
-      </g>
-    );
+  const weekPieData = getCurrentWeekAnalytics();
+  
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const weekPieData = getCurrentWeekAnalytics();
+  const scrollToBottom = () => {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-red-100 selection:text-red-900 flex flex-col overflow-x-hidden">
@@ -233,42 +205,43 @@ export default function App() {
 
         {/* Navigation / Tabs */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
-          <div className="flex items-center gap-2 border-b border-white/20 pb-px mt-4">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2 border-b border-white/20 pb-px mt-4">
             <button
               onClick={() => setActiveTab('today')}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 border-b-2 transition-colors font-medium text-sm rounded-t-lg",
+                "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border-b-2 transition-colors font-medium text-xs sm:text-sm rounded-t-lg",
                 activeTab === 'today' 
                   ? "bg-white border-white text-emerald-700" 
                   : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20"
               )}
             >
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               Hari Ini
             </button>
             <button
               onClick={() => setActiveTab('upcoming')}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 border-b-2 transition-colors font-medium text-sm rounded-t-lg",
+                "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border-b-2 transition-colors font-medium text-xs sm:text-sm rounded-t-lg",
                 activeTab === 'upcoming' 
                   ? "bg-white border-white text-emerald-700" 
                   : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20"
               )}
             >
-              <CalendarDays className="w-4 h-4" />
+              <CalendarDays className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               6 Hari Kedepan
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 border-b-2 transition-colors font-medium text-sm rounded-t-lg whitespace-nowrap",
+                "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 border-b-2 transition-colors font-medium text-xs sm:text-sm rounded-t-lg",
                 activeTab === 'analytics' 
                   ? "bg-white border-white text-emerald-700" 
                   : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20"
               )}
             >
-              <PieChartIcon className="w-4 h-4" />
-              Analisis Waktu
+              <PieChartIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="hidden xs:inline">Analisis Waktu</span>
+              <span className="xs:hidden">Analisis</span>
             </button>
           </div>
         </div>
@@ -560,44 +533,94 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'analytics' && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center">
-            <div className="flex flex-col items-center gap-2 mb-6 text-center">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
-                <PieChartIcon className="w-6 h-6 text-emerald-600" />
-                Alokasi Waktu (Minggu Ini)
-              </h2>
-              <p className="text-sm text-gray-500">Mulai Senin hingga Hari Ini.</p>
-              {weekPieData.length === 0 && <p className="text-sm text-red-500 mt-2 font-medium">Belum ada data jadwal.</p>}
-            </div>
+        {activeTab === 'analytics' && (() => {
+          const totalMinutes = weekPieData.reduce((acc, curr) => acc + curr.value, 0);
+          const totalHours = Math.floor(totalMinutes / 60);
+          const remainingMins = totalMinutes % 60;
+          const totalDurationStr = totalHours > 0 
+            ? `${totalHours}j${remainingMins > 0 ? ` ${remainingMins}m` : ''}` 
+            : `${remainingMins}m`;
 
-            {weekPieData.length > 0 && (
-              <div className="w-full h-[400px] sm:h-[500px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 40, right: 80, bottom: 40, left: 80 }}>
-                    <Pie
-                      data={weekPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="35%"
-                      outerRadius="55%"
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={renderCustomizedLabel}
-                      labelLine={false}
-                      paddingAngle={4}
-                      style={{ filter: "drop-shadow(4px 8px 12px rgba(0,0,0,0.3))" }}
-                    >
-                      {weekPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+          return (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center">
+              <div className="flex flex-col items-center gap-2 mb-6 text-center focus:outline-none">
+                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                  <BarChart3 className="w-6 h-6 text-emerald-600 animate-pulse" />
+                  Alokasi Waktu (Minggu Ini)
+                </h2>
+                <p className="text-sm text-gray-500">Mulai Senin hingga Hari Ini.</p>
+                {weekPieData.length > 0 && (
+                  <div className="mt-4 bg-emerald-50 px-5 py-2.5 rounded-full border border-emerald-100 shadow-sm">
+                    <span className="text-emerald-800 font-semibold text-sm">Total Waktu: <span className="font-bold">{totalDurationStr}</span></span>
+                  </div>
+                )}
+                {weekPieData.length === 0 && <p className="text-sm text-red-500 mt-2 font-medium">Belum ada data jadwal.</p>}
               </div>
-            )}
-          </div>
-        )}
+
+              {weekPieData.length > 0 && (
+                <>
+                  {/* Category Details & Progression List (No-click detailed view matching the reference design) */}
+                  <div className="w-full max-w-xl mt-6 bg-gray-50 rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-sm">
+                    <div className="flex items-center justify-between mb-5 pb-3 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <ListTodo className="w-5 h-5 text-gray-800" />
+                        <span className="font-bold text-gray-800 text-sm sm:text-base">{weekPieData.length} Kategori</span>
+                      </div>
+                      <span className="text-xs font-bold bg-emerald-100 text-emerald-800 py-1 px-3 rounded-full">
+                        Terbanyak
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {weekPieData.map((item, index) => {
+                        const percentage = ((item.value / totalMinutes) * 100).toFixed(1);
+                        const hours = Math.floor(item.value / 60);
+                        const mins = item.value % 60;
+                        const formattedDuration = hours > 0 ? `${hours}j ${mins > 0 ? `${mins}m` : ''}` : `${mins}m`;
+
+                        return (
+                          <div key={index} className="flex flex-col gap-3 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="flex flex-col items-center">
+                                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1">Alokasi Maks</span>
+                                  <span className="font-bold bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1.5 rounded-md border border-emerald-100/50 shadow-sm min-w-[4.5rem] text-center">
+                                    {formattedDuration}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-gray-800 text-sm sm:text-base tracking-tight mb-0.5">
+                                    {item.name}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-[10px] sm:text-xs text-gray-500 font-medium">{percentage}% dari total waktu</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-center">
+                                <ChevronRight className="w-4 h-4 text-gray-300" />
+                              </div>
+                            </div>
+                            {/* Underline colored progress bar matching the slice color */}
+                            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all duration-500 ease-out"
+                                style={{ 
+                                  width: `${percentage}%`,
+                                  backgroundColor: item.color
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </main>
 
       {editingTask && (
@@ -791,6 +814,24 @@ export default function App() {
             </div>
         </div>
       )}
+
+      {/* Floating Scroll Buttons */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
+        <button 
+          onClick={scrollToTop}
+          className="p-3 bg-white hover:bg-gray-50 text-emerald-600 border border-emerald-100 rounded-full shadow-lg transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          aria-label="Scroll to Top"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+        <button 
+          onClick={scrollToBottom}
+          className="p-3 bg-white hover:bg-gray-50 text-emerald-600 border border-emerald-100 rounded-full shadow-lg transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+          aria-label="Scroll to Bottom"
+        >
+          <ArrowDown className="w-5 h-5" />
+        </button>
+      </div>
 
       {/* Footer */}
       <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 py-8 text-center mt-auto">
