@@ -118,6 +118,12 @@ export function useSchedule() {
   const [lastSpeechId, setLastSpeechId] = useState<string | null>(null);
   const previousItemRef = useRef<string | null>(null);
 
+  const [user, setUser] = useState(auth.currentUser);
+
+  useEffect(() => {
+    return auth.onAuthStateChanged(setUser);
+  }, []);
+
   // Background Audio Hack to keep service alive
   useEffect(() => {
     const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
@@ -190,7 +196,8 @@ export function useSchedule() {
 
   // Load progress on mount or date change
   useEffect(() => {
-    const todayProgressStr = localStorage.getItem(`productivity_${currentDateStr}`);
+    const key = user ? `productivity_${user.uid}_${currentDateStr}` : `productivity_${currentDateStr}`;
+    const todayProgressStr = localStorage.getItem(key);
     if (todayProgressStr) {
       try {
         setProgress(JSON.parse(todayProgressStr));
@@ -200,12 +207,25 @@ export function useSchedule() {
     } else {
       setProgress({});
     }
-  }, [currentDateStr]);
+
+    if (user) {
+        getDoc(doc(db, 'users', user.uid, 'progress', currentDateStr)).then(snap => {
+            if (snap.exists()) {
+                setProgress(snap.data().progress || {});
+                localStorage.setItem(key, JSON.stringify(snap.data().progress || {}));
+            }
+        });
+    }
+  }, [currentDateStr, user]);
 
   const toggleTask = (id: string) => {
     setProgress(prev => {
       const next = { ...prev, [id]: !prev[id] };
-      localStorage.setItem(`productivity_${currentDateStr}`, JSON.stringify(next));
+      const key = user ? `productivity_${user.uid}_${currentDateStr}` : `productivity_${currentDateStr}`;
+      localStorage.setItem(key, JSON.stringify(next));
+      if (user) {
+          setDoc(doc(db, 'users', user.uid, 'progress', currentDateStr), { progress: next }, { merge: true });
+      }
       return next;
     });
   };
@@ -257,40 +277,36 @@ export function useSchedule() {
 
   const [customSchedules, setCustomSchedules] = useState<Record<string, ScheduleItem[]>>({});
   const [globalOverrides, setGlobalOverrides] = useState<Record<string, ScheduleItem>>({});
-  const [user, setUser] = useState(auth.currentUser);
-
-  useEffect(() => {
-    return auth.onAuthStateChanged(setUser);
-  }, []);
 
   // Fetch local schedules
   useEffect(() => {
     const loadedSchedules: Record<string, ScheduleItem[]> = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith('custom_schedule_')) {
-            const dateStr = key.replace('custom_schedule_', '');
+        const prefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
+        if (key && key.startsWith(prefix)) {
+            const dateStr = key.replace(prefix, '');
             try {
                 loadedSchedules[dateStr] = JSON.parse(localStorage.getItem(key) || '[]');
             } catch(e) {}
         }
     }
-    setCustomSchedules(prev => ({ ...prev, ...loadedSchedules }));
+    setCustomSchedules(loadedSchedules);
     
     try {
-        const localOverrides = JSON.parse(localStorage.getItem('globalOverrides') || '{}');
+        const localOverrides = JSON.parse(localStorage.getItem(user ? `globalOverrides_${user.uid}` : 'globalOverrides') || '{}');
         setGlobalOverrides(localOverrides);
     } catch(e) {}
-  }, []);
+  }, [user]);
 
   // Fetch Firebase schedules when user logs in
   useEffect(() => {
     if (!user) return;
     
-    const unsub = onSnapshot(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), (doc) => {
-        if (doc.exists()) {
-            setGlobalOverrides(doc.data().items || {});
-            localStorage.setItem('globalOverrides', JSON.stringify(doc.data().items || {}));
+    const unsub = onSnapshot(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), (docSnap) => {
+        if (docSnap.exists()) {
+            setGlobalOverrides(docSnap.data().items || {});
+            localStorage.setItem(`globalOverrides_${user.uid}`, JSON.stringify(docSnap.data().items || {}));
         }
     });
     
@@ -321,6 +337,8 @@ export function useSchedule() {
       const dayOfWeek = date.getDay();
       
       if (Object.keys(globalOverrides).length > 0) {
+          const baseStartTimes = new Set(base.map(item => item.start));
+          
           base = base.map(item => {
               const override = globalOverrides[item.start];
               if (override) {
@@ -331,6 +349,16 @@ export function useSchedule() {
               }
               return item;
           });
+          
+          Object.values(globalOverrides).forEach(override => {
+              if (!baseStartTimes.has(override.start)) {
+                  if (!(override.excludedDays && override.excludedDays.includes(dayOfWeek))) {
+                      base.push({ ...override });
+                  }
+              }
+          });
+          
+          base.sort((a, b) => a.start.localeCompare(b.start));
       }
       
       return customSchedules[dStr] || base;
@@ -341,10 +369,12 @@ export function useSchedule() {
       const originalItem = current[index];
       const nextSchedule = [...current];
       nextSchedule[index] = updatedItem;
+      const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
+      const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
       
       if (applyMode === 'today') {
           setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
-          localStorage.setItem(`custom_schedule_${dateStr}`, JSON.stringify(nextSchedule));
+          localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify(nextSchedule));
 
           if (user) {
               try {
@@ -360,7 +390,7 @@ export function useSchedule() {
 
           const newOverrides = { ...globalOverrides, [baseStartTime]: updatedItem };
           setGlobalOverrides(newOverrides);
-          localStorage.setItem('globalOverrides', JSON.stringify(newOverrides));
+          localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
           
           if (user) {
               try {
@@ -370,14 +400,61 @@ export function useSchedule() {
               }
           }
           
-          setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
-          localStorage.setItem(`custom_schedule_${dateStr}`, JSON.stringify(nextSchedule));
+          setCustomSchedules(prev => {
+              const nextCustom = { ...prev };
+              nextCustom[dateStr] = nextSchedule;
+              
+              Object.keys(nextCustom).forEach(dStr => {
+                  if (dStr !== dateStr) {
+                      let changed = false;
+                      nextCustom[dStr] = nextCustom[dStr].map(item => {
+                          if (item.id === originalItem.id || item.start === baseStartTime) {
+                              changed = true;
+                              return { ...updatedItem, id: item.id };
+                          }
+                          return item;
+                      });
+                      
+                      if (changed) {
+                          localStorage.setItem(`${customPrefix}${dStr}`, JSON.stringify(nextCustom[dStr]));
+                          if (user) {
+                              setDoc(doc(db, 'users', user.uid, 'schedules', dStr), { schedule: nextCustom[dStr] }).catch(console.error);
+                          }
+                      }
+                  }
+              });
+              
+              return nextCustom;
+          });
+          
+          localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify(nextSchedule));
           if (user) {
               try {
                   await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
               } catch(e) {
                   console.error("Firebase save error", e);
               }
+          }
+      }
+  };
+
+  const addScheduleItem = async (dateStr: string, newItem: ScheduleItem) => {
+      const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
+      
+      const nextSchedule = [...current, newItem].sort((a, b) => {
+          return a.start.localeCompare(b.start);
+      });
+      
+      const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
+      
+      setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
+      localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify(nextSchedule));
+
+      if (user) {
+          try {
+              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
+          } catch(e) {
+              console.error("Firebase save error", e);
           }
       }
   };
@@ -549,7 +626,8 @@ export function useSchedule() {
       const dStr = format(d, 'yyyy-MM-dd');
       const dayName = format(d, 'EEE');
       
-      const stored = localStorage.getItem(`productivity_${dStr}`);
+      const key = user ? `productivity_${user.uid}_${dStr}` : `productivity_${dStr}`;
+      const stored = localStorage.getItem(key);
       let completedCount = 0;
       if (stored) {
         try {
@@ -655,6 +733,7 @@ export function useSchedule() {
     getCurrentWeekAnalytics,
     getResolvedSchedule,
     updateScheduleItem,
+    addScheduleItem,
     loadScheduleForDate,
     user
   };

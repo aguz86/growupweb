@@ -13,6 +13,7 @@ import { id } from 'date-fns/locale';
 import { getScheduleForDate, ScheduleItem } from './data/schedule';
 import { AuthMenu } from './components/AuthMenu';
 import { EditTaskModal } from './components/EditTaskModal';
+import { AddActivityModal } from './components/AddActivityModal';
 import { MotivationalNote } from './components/MotivationalNote';
 import { downloadICS } from './utils/icsExport';
 
@@ -46,16 +47,26 @@ export default function App() {
     getCurrentWeekAnalytics,
     getResolvedSchedule,
     updateScheduleItem,
+    addScheduleItem,
     user
   } = useSchedule();
 
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'analytics'>('today');
   const [selectedUpcomingDate, setSelectedUpcomingDate] = useState<string>(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
   const [editingTask, setEditingTask] = useState<{ item: ScheduleItem, index: number, dateStr: string } | null>(null);
+  const [isAddingTaskForDate, setIsAddingTaskForDate] = useState<string | null>(null);
   const [showActivePopup, setShowActivePopup] = useState(true);
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [firebaseProxy, setFirebaseProxy] = useState(localStorage.getItem('firebase_auth_proxy') || '');
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
+  };
 
   const activeItemRef = useRef<HTMLDivElement>(null);
 
@@ -259,13 +270,22 @@ export default function App() {
                          <Clock className="w-5 h-5 text-[#c0392b]" />
                          Jadwal Hari Ini <span className="text-gray-400 text-sm font-normal">({currentDateStr})</span>
                      </h2>
-                     <button
-                        onClick={() => downloadICS(todaySchedule, currentDateStr)}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-emerald-200"
-                     >
-                       <CalendarPlus className="w-3.5 h-3.5" />
-                       Sinkronkan Alarm ke Kalender HP
-                     </button>
+                     <div className="flex flex-col gap-2">
+                         <button
+                            onClick={() => downloadICS(todaySchedule, currentDateStr)}
+                            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-emerald-200"
+                         >
+                           <CalendarPlus className="w-3.5 h-3.5" />
+                           Sinkronkan Alarm
+                         </button>
+                         <button
+                            onClick={() => setIsAddingTaskForDate(currentDateStr)}
+                            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 py-1.5 px-3 rounded-full transition-colors w-fit shadow-sm"
+                         >
+                           <CalendarPlus className="w-3.5 h-3.5" />
+                           Tambah Aktivitas
+                         </button>
+                     </div>
                    </div>
                    <div className="text-sm px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-600 shrink-0">
                        {Object.keys(progress).filter(k => progress[k]).length} / {todaySchedule.length} Selesai
@@ -481,13 +501,22 @@ export default function App() {
                                 <CalendarDays className="w-5 h-5 text-indigo-600" />
                                 <h2 className="text-lg font-bold text-indigo-900">{dayName}, <span className="font-medium text-indigo-500">{selectedUpcomingDate}</span></h2>
                             </div>
-                            <button
-                                onClick={() => downloadICS(schedule, selectedUpcomingDate)}
-                                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-white bg-indigo-100 hover:bg-indigo-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
-                            >
-                                <CalendarPlus className="w-4 h-4" />
-                                Sinkronkan ke Kalender
-                            </button>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <button
+                                    onClick={() => downloadICS(schedule, selectedUpcomingDate)}
+                                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-white bg-indigo-100 hover:bg-indigo-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
+                                >
+                                    <CalendarPlus className="w-4 h-4" />
+                                    Sinkronkan
+                                </button>
+                                <button
+                                    onClick={() => setIsAddingTaskForDate(selectedUpcomingDate)}
+                                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
+                                >
+                                    <CalendarPlus className="w-4 h-4" />
+                                    Tambah Aktivitas
+                                </button>
+                            </div>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -631,8 +660,42 @@ export default function App() {
           onSave={async (updated, applyMode) => {
             await updateScheduleItem(editingTask.dateStr, editingTask.index, updated, applyMode);
             setEditingTask(null);
+            showNotification("Tugas berhasil disimpan!");
           }}
         />
+      )}
+
+      {isAddingTaskForDate && (
+        <AddActivityModal
+          isOpen={true}
+          onClose={() => setIsAddingTaskForDate(null)}
+          onSave={async (newItem) => {
+            const currentWeekAnalytics = getCurrentWeekAnalytics();
+            const totalScheduledMinutes = currentWeekAnalytics.reduce((sum, curr) => 
+                curr.name !== 'Waktu Kosong (Tak Terjadwal)' ? sum + curr.value : sum, 0);
+            
+            const maxWeeklyMinutes = 168 * 60; // 10080
+            
+            if (totalScheduledMinutes + newItem.duration > maxWeeklyMinutes) {
+                alert(`Gagal menambah aktivitas: Total jadwal Anda dalam seminggu melebihi 168 jam (Anda sudah memiliki ${Math.floor(totalScheduledMinutes / 60)} jam ${totalScheduledMinutes % 60} menit). Silakan kurangi durasi aktivitas lain terlebih dahulu.`);
+                return;
+            }
+
+            await addScheduleItem(isAddingTaskForDate, newItem);
+            setIsAddingTaskForDate(null);
+            showNotification("Tugas berhasil ditambahkan!");
+          }}
+        />
+      )}
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[150] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-200" />
+            {notification}
+          </div>
+        </div>
       )}
 
       {/* Floating Active Item Popup */}
