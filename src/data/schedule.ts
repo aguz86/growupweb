@@ -6,6 +6,7 @@ export type ScheduleItem = {
   activity: string;
   notes: string;
   isBreak: boolean;
+  excludedDays?: number[]; // 0 = Sunday, 1 = Monday, etc.
 };
 
 const commonMorningSleep: Omit<ScheduleItem, 'id'>[] = [

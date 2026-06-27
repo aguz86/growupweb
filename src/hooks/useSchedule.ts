@@ -256,6 +256,7 @@ export function useSchedule() {
   }, []);
 
   const [customSchedules, setCustomSchedules] = useState<Record<string, ScheduleItem[]>>({});
+  const [globalOverrides, setGlobalOverrides] = useState<Record<string, ScheduleItem>>({});
   const [user, setUser] = useState(auth.currentUser);
 
   useEffect(() => {
@@ -275,15 +276,25 @@ export function useSchedule() {
         }
     }
     setCustomSchedules(prev => ({ ...prev, ...loadedSchedules }));
+    
+    try {
+        const localOverrides = JSON.parse(localStorage.getItem('globalOverrides') || '{}');
+        setGlobalOverrides(localOverrides);
+    } catch(e) {}
   }, []);
 
   // Fetch Firebase schedules when user logs in
   useEffect(() => {
     if (!user) return;
-    // We fetch a 14-day window around today to be safe, but simpler is to fetch all docs in 'schedules' subcollection.
-    // However getDocs on subcollection requires importing getDocs, collection.
-    // Instead, we just listen to the dates we care about when we render them, or just use a generic fetch.
-    // For simplicity, let's export a function to load a date if not loaded.
+    
+    const unsub = onSnapshot(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), (doc) => {
+        if (doc.exists()) {
+            setGlobalOverrides(doc.data().items || {});
+            localStorage.setItem('globalOverrides', JSON.stringify(doc.data().items || {}));
+        }
+    });
+    
+    return () => unsub();
   }, [user]);
 
   const loadScheduleForDate = async (dateStr: string) => {
@@ -306,22 +317,67 @@ export function useSchedule() {
 
   const getResolvedSchedule = (date: Date) => {
       const dStr = format(date, 'yyyy-MM-dd');
-      return customSchedules[dStr] || getScheduleForDate(date);
+      let base = getScheduleForDate(date);
+      const dayOfWeek = date.getDay();
+      
+      if (Object.keys(globalOverrides).length > 0) {
+          base = base.map(item => {
+              const override = globalOverrides[item.start];
+              if (override) {
+                  if (override.excludedDays && override.excludedDays.includes(dayOfWeek)) {
+                      return item;
+                  }
+                  return { ...override, id: item.id };
+              }
+              return item;
+          });
+      }
+      
+      return customSchedules[dStr] || base;
   };
 
-  const updateScheduleItem = async (dateStr: string, index: number, updatedItem: ScheduleItem) => {
+  const updateScheduleItem = async (dateStr: string, index: number, updatedItem: ScheduleItem, applyMode: 'today' | 'all' | 'all_except' = 'today') => {
       const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
+      const originalItem = current[index];
       const nextSchedule = [...current];
       nextSchedule[index] = updatedItem;
       
-      setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
-      localStorage.setItem(`custom_schedule_${dateStr}`, JSON.stringify(nextSchedule));
+      if (applyMode === 'today') {
+          setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
+          localStorage.setItem(`custom_schedule_${dateStr}`, JSON.stringify(nextSchedule));
 
-      if (user) {
-          try {
-              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
-          } catch(e) {
-              console.error("Firebase save error", e);
+          if (user) {
+              try {
+                  await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
+              } catch(e) {
+                  console.error("Firebase save error", e);
+              }
+          }
+      } else {
+          const baseSchedule = getScheduleForDate(parse(dateStr, 'yyyy-MM-dd', new Date()));
+          const baseItem = baseSchedule.find(b => b.id === originalItem.id);
+          const baseStartTime = baseItem ? baseItem.start : originalItem.start;
+
+          const newOverrides = { ...globalOverrides, [baseStartTime]: updatedItem };
+          setGlobalOverrides(newOverrides);
+          localStorage.setItem('globalOverrides', JSON.stringify(newOverrides));
+          
+          if (user) {
+              try {
+                  await setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true });
+              } catch (e) {
+                  console.error("Firebase save error", e);
+              }
+          }
+          
+          setCustomSchedules(prev => ({ ...prev, [dateStr]: nextSchedule }));
+          localStorage.setItem(`custom_schedule_${dateStr}`, JSON.stringify(nextSchedule));
+          if (user) {
+              try {
+                  await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
+              } catch(e) {
+                  console.error("Firebase save error", e);
+              }
           }
       }
   };

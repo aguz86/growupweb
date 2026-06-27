@@ -151,7 +151,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
              <Activity className="w-6 h-6 animate-pulse" />
-             <h1 className="text-xl font-extrabold tracking-tight drop-shadow-sm">V3 Progress Tracker</h1>
+             <h1 className="text-xl font-extrabold tracking-tight drop-shadow-sm">GROW UP | Habit Changer</h1>
           </div>
           
           <div className="flex items-center gap-3 bg-black/20 p-1.5 rounded-full backdrop-blur-sm border border-white/10">
@@ -325,7 +325,7 @@ export default function App() {
                                     isActive && "text-emerald-800",
                                     isCompleted && "line-through text-gray-400"
                                 )}>{item.activity}</h3>
-                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.notes}</p>
+                                <p className="text-sm font-bold text-gray-500 mt-1 line-clamp-2">{item.notes}</p>
                             </div>
                         </div>
                       )
@@ -353,7 +353,7 @@ export default function App() {
                              Sedang Berlangsung {activeItem.isBreak ? "(Jeda)" : ""}
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 mb-2">{activeItem.activity}</h3>
-                        <p className="text-gray-600 text-sm mb-4">{activeItem.notes}</p>
+                        <p className="font-bold text-gray-600 text-sm mb-4">{activeItem.notes}</p>
                         
                         {remainingSeconds !== null && (
                             <div className={cn(
@@ -521,7 +521,7 @@ export default function App() {
                                         item.isBreak ? "text-[#c0392b]" : "text-gray-900 group-hover:text-emerald-800 transition-colors"
                                     )}>{item.activity}</h3>
                                     <p className={cn(
-                                        "text-sm mt-2 line-clamp-2 leading-relaxed transition-colors",
+                                        "text-sm font-bold mt-2 line-clamp-2 leading-relaxed transition-colors",
                                         item.isBreak ? "text-red-700/70" : "text-gray-500 group-hover:text-gray-700"
                                     )}>{item.notes}</p>
                                 </div>
@@ -628,8 +628,8 @@ export default function App() {
           isOpen={true}
           item={editingTask.item}
           onClose={() => setEditingTask(null)}
-          onSave={async (updated) => {
-            await updateScheduleItem(editingTask.dateStr, editingTask.index, updated);
+          onSave={async (updated, applyMode) => {
+            await updateScheduleItem(editingTask.dateStr, editingTask.index, updated, applyMode);
             setEditingTask(null);
           }}
         />
@@ -637,40 +637,40 @@ export default function App() {
 
       {/* Floating Active Item Popup */}
       {activeItem && showActivePopup && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300 overflow-hidden">
+        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-8 md:bottom-8 md:w-[28rem] lg:w-[40rem] xl:w-[50rem] bg-white rounded-3xl shadow-2xl border border-gray-200 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300 overflow-hidden">
             <button 
                 onClick={() => setShowActivePopup(false)} 
-                className="absolute top-2 right-2 text-gray-500 hover:text-white bg-white hover:bg-red-500 shadow-md border border-gray-200 hover:border-red-500 rounded-full p-2 z-10 transition-all active:scale-95 group"
+                className="absolute top-4 right-4 md:top-4 md:right-4 text-gray-500 hover:text-white bg-white hover:bg-red-500 shadow-md border border-gray-200 hover:border-red-500 rounded-full p-4 md:p-3 z-10 transition-all active:scale-95 group"
                 aria-label="Tutup popup"
             >
-                <X className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <X className="w-8 h-8 md:w-6 md:h-6 group-hover:scale-110 transition-transform" />
             </button>
             <div className={cn(
-                "p-4 border-l-4",
+                "p-8 sm:p-10 md:p-8 lg:p-12 border-l-8 md:border-l-8",
                 activeItem.isBreak 
                     ? (remainingSeconds !== null && remainingSeconds <= 60 ? "border-yellow-500 bg-yellow-50/50" : "border-[#c0392b] bg-red-50/50")
                     : "border-emerald-500 bg-emerald-50/50"
             )}>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-4 pr-20 md:pr-0">
                     <Activity className={cn(
-                        "w-4 h-4 animate-pulse",
+                        "w-8 h-8 sm:w-10 sm:h-10 md:w-8 md:h-8 lg:w-10 lg:h-10 animate-pulse shrink-0",
                         activeItem.isBreak 
                             ? (remainingSeconds !== null && remainingSeconds <= 60 ? "text-yellow-600" : "text-[#c0392b]")
                             : "text-emerald-600"
                     )} />
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                    <span className="text-2xl sm:text-3xl md:text-xl lg:text-3xl font-bold uppercase tracking-wider text-gray-500 leading-tight">
                         Sedang Berlangsung {activeItem.isBreak ? "(Jeda)" : ""}
                     </span>
                 </div>
-                <h3 className="font-bold text-gray-900 truncate pr-6 text-sm">{activeItem.activity}</h3>
+                <h3 className="font-bold text-gray-900 line-clamp-3 pr-2 md:pr-6 text-4xl sm:text-5xl md:text-4xl lg:text-6xl leading-tight md:leading-tight lg:leading-tight mb-4 md:mb-0">{activeItem.activity}</h3>
                 
                 {remainingSeconds !== null && (
-                    <div className="mt-3 flex items-center justify-between">
-                        <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
-                            <Timer className="w-3 h-3" /> Sisa Waktu:
+                    <div className="mt-6 md:mt-8 lg:mt-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="text-2xl sm:text-3xl md:text-xl lg:text-3xl text-gray-500 font-medium flex items-center gap-2 md:gap-2">
+                            <Timer className="w-8 h-8 sm:w-10 sm:h-10 md:w-6 md:h-6 lg:w-8 lg:h-8" /> Sisa Waktu:
                         </div>
                         <div className={cn(
-                            "font-mono font-bold text-2xl tracking-tighter drop-shadow-sm",
+                            "font-mono font-bold text-[5rem] sm:text-[6rem] md:text-6xl lg:text-8xl xl:text-[8rem] tracking-tighter drop-shadow-sm leading-none",
                             activeItem.isBreak 
                                 ? (remainingSeconds <= 60 ? "text-yellow-600" : "text-[#c0392b]")
                                 : "text-emerald-700"
@@ -836,7 +836,7 @@ export default function App() {
       {/* Footer */}
       <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 py-8 text-center mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
-          <p>&copy; {new Date().getFullYear()} V3 Progress Tracker. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} GROW UP | Habit Changer. All rights reserved.</p>
           <button 
             onClick={handleDownloadApp}
             className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-medium transition-colors shadow-sm text-sm"
