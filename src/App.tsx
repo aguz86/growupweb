@@ -16,6 +16,8 @@ import { EditTaskModal } from './components/EditTaskModal';
 import { AddActivityModal } from './components/AddActivityModal';
 import { MotivationalNote } from './components/MotivationalNote';
 import { downloadICS } from './utils/icsExport';
+import { useGoogleLogin } from '@react-oauth/google';
+import { exportToGoogleTasks } from './utils/googleTasks';
 
 const formatRemainingTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -47,6 +49,7 @@ export default function App() {
     getCurrentWeekAnalytics,
     getResolvedSchedule,
     updateScheduleItem,
+    deleteScheduleItem,
     addScheduleItem,
     user
   } = useSchedule();
@@ -60,6 +63,30 @@ export default function App() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [firebaseProxy, setFirebaseProxy] = useState(localStorage.getItem('firebase_auth_proxy') || '');
   const [notification, setNotification] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const googleTasksLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsExporting(true);
+      showNotification('Mengekspor jadwal ke Google Tasks...');
+      try {
+        const scheduleToExport = activeTab === 'today' ? todaySchedule : getResolvedSchedule(selectedUpcomingDate);
+        const dateToExport = activeTab === 'today' ? currentDateStr : selectedUpcomingDate;
+        
+        const { successCount, errorCount } = await exportToGoogleTasks(tokenResponse.access_token, scheduleToExport, dateToExport);
+        if (errorCount > 0) {
+          showNotification(`Berhasil mengekspor ${successCount} tugas. ${errorCount} gagal.`);
+        } else {
+          showNotification(`Berhasil mengekspor ${successCount} tugas ke Google Tasks!`);
+        }
+      } catch (err) {
+        showNotification('Gagal mengekspor jadwal.');
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    scope: 'https://www.googleapis.com/auth/tasks',
+  });
 
   const showNotification = (message: string) => {
     setNotification(message);
@@ -271,20 +298,30 @@ export default function App() {
                          Jadwal Hari Ini <span className="text-gray-400 text-sm font-normal">({currentDateStr})</span>
                      </h2>
                      <div className="flex flex-col gap-2">
-                         <button
-                            onClick={() => downloadICS(todaySchedule, currentDateStr)}
-                            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-emerald-200"
-                         >
-                           <CalendarPlus className="w-3.5 h-3.5" />
-                           Sinkronkan Alarm
-                         </button>
-                         <button
-                            onClick={() => setIsAddingTaskForDate(currentDateStr)}
-                            className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 py-1.5 px-3 rounded-full transition-colors w-fit shadow-sm"
-                         >
-                           <CalendarPlus className="w-3.5 h-3.5" />
-                           Tambah Aktivitas
-                         </button>
+                         <div className="flex flex-wrap gap-2">
+                             <button
+                                onClick={() => downloadICS(todaySchedule, currentDateStr)}
+                                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-emerald-200"
+                             >
+                               <CalendarPlus className="w-3.5 h-3.5" />
+                               Sinkronkan Alarm
+                             </button>
+                             <button
+                                onClick={() => googleTasksLogin()}
+                                disabled={isExporting}
+                                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-blue-200 disabled:opacity-50"
+                             >
+                               <ListTodo className="w-3.5 h-3.5" />
+                               {isExporting ? 'Mengekspor...' : 'Ekspor ke Google Tasks'}
+                             </button>
+                             <button
+                                onClick={() => setIsAddingTaskForDate(currentDateStr)}
+                                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 py-1.5 px-3 rounded-full transition-colors w-fit shadow-sm"
+                             >
+                               <CalendarPlus className="w-3.5 h-3.5" />
+                               Tambah Aktivitas
+                             </button>
+                         </div>
                      </div>
                    </div>
                    <div className="text-sm px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-600 shrink-0">
@@ -497,13 +534,21 @@ export default function App() {
                                 <CalendarDays className="w-5 h-5 text-indigo-600" />
                                 <h2 className="text-lg font-bold text-indigo-900">{dayName}, <span className="font-medium text-indigo-500">{selectedUpcomingDate}</span></h2>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-2">
+                            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                                 <button
                                     onClick={() => downloadICS(schedule, selectedUpcomingDate)}
                                     className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-white bg-indigo-100 hover:bg-indigo-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
                                 >
                                     <CalendarPlus className="w-4 h-4" />
                                     Sinkronkan
+                                </button>
+                                <button
+                                    onClick={() => googleTasksLogin()}
+                                    disabled={isExporting}
+                                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-white bg-blue-100 hover:bg-blue-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm disabled:opacity-50"
+                                >
+                                    <ListTodo className="w-4 h-4" />
+                                    {isExporting ? 'Mengekspor...' : 'Ekspor ke Google Tasks'}
                                 </button>
                                 <button
                                     onClick={() => setIsAddingTaskForDate(selectedUpcomingDate)}
@@ -657,6 +702,11 @@ export default function App() {
             await updateScheduleItem(editingTask.dateStr, editingTask.index, updated, applyMode);
             setEditingTask(null);
             showNotification("Tugas berhasil disimpan!");
+          }}
+          onDelete={async (applyMode) => {
+            await deleteScheduleItem(editingTask.dateStr, editingTask.index, applyMode);
+            setEditingTask(null);
+            showNotification("Tugas berhasil dihapus!");
           }}
         />
       )}

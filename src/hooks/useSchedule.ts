@@ -345,12 +345,14 @@ export function useSchedule() {
                   if (override.excludedDays && override.excludedDays.includes(dayOfWeek)) {
                       return item;
                   }
+                  if (override.isDeleted) return null;
                   return { ...override, id: item.id };
               }
               return item;
-          });
+          }).filter(Boolean) as ScheduleItem[];
           
           Object.values(globalOverrides).forEach(override => {
+              if (override.isDeleted) return;
               if (!baseStartTimes.has(override.start)) {
                   if (!(override.excludedDays && override.excludedDays.includes(dayOfWeek))) {
                       base.push({ ...override });
@@ -361,7 +363,7 @@ export function useSchedule() {
           base.sort((a, b) => a.start.localeCompare(b.start));
       }
       
-      return customSchedules[dStr] || base;
+      return customSchedules[dStr] ? customSchedules[dStr].filter(i => !i.isDeleted) : base.filter(i => !i.isDeleted);
   };
 
   const updateScheduleItem = async (dateStr: string, index: number, updatedItem: ScheduleItem, applyMode: 'today' | 'all' | 'all_except' = 'today') => {
@@ -369,6 +371,7 @@ export function useSchedule() {
       const originalItem = current[index];
       const nextSchedule = [...current];
       nextSchedule[index] = updatedItem;
+      nextSchedule.sort((a, b) => a.start.localeCompare(b.start));
       const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
       const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
       
@@ -402,40 +405,64 @@ export function useSchedule() {
           
           setCustomSchedules(prev => {
               const nextCustom = { ...prev };
-              nextCustom[dateStr] = nextSchedule;
+              if (!nextCustom[dateStr]) {
+                  nextCustom[dateStr] = nextSchedule;
+              }
               
+              const updateDay = (dStr: string, scheduleArray: ScheduleItem[]) => {
+                  const dateObj = parse(dStr, 'yyyy-MM-dd', new Date());
+                  const dayOfWeek = dateObj.getDay();
+                  let changed = false;
+                  let shouldExclude = updatedItem.excludedDays && updatedItem.excludedDays.includes(dayOfWeek);
+
+                  const updated = scheduleArray.map(item => {
+                      if (item.id === originalItem.id || item.start === baseStartTime) {
+                          changed = true;
+                          if (shouldExclude) {
+                              const baseScheduleForDay = getScheduleForDate(dateObj);
+                              const baseItemForDay = baseScheduleForDay.find(b => b.start === baseStartTime);
+                              return baseItemForDay ? baseItemForDay : null;
+                          }
+                          return { ...updatedItem, id: item.id };
+                      }
+                      return item;
+                  }).filter(Boolean) as ScheduleItem[];
+                  
+                  if (!changed && !shouldExclude) {
+                      updated.push({ ...updatedItem, id: originalItem.id });
+                      changed = true;
+                  }
+                  
+                  if (changed || dStr === dateStr) {
+                      updated.sort((a, b) => a.start.localeCompare(b.start));
+                  }
+                  return { updated, changed };
+              };
+
+              // First update all cached days, INCLUDING dateStr
               Object.keys(nextCustom).forEach(dStr => {
-                  if (dStr !== dateStr) {
-                      let changed = false;
-                      nextCustom[dStr] = nextCustom[dStr].map(item => {
-                          if (item.id === originalItem.id || item.start === baseStartTime) {
-                              changed = true;
-                              return { ...updatedItem, id: item.id };
-                          }
-                          return item;
-                      });
-                      
-                      if (changed) {
-                          localStorage.setItem(`${customPrefix}${dStr}`, JSON.stringify(nextCustom[dStr]));
-                          if (user) {
-                              setDoc(doc(db, 'users', user.uid, 'schedules', dStr), { schedule: nextCustom[dStr] }).catch(console.error);
-                          }
+                  const scheduleToUpdate = dStr === dateStr ? nextSchedule : nextCustom[dStr];
+                  const res = updateDay(dStr, scheduleToUpdate);
+                  
+                  if (res.changed || dStr === dateStr) {
+                      nextCustom[dStr] = res.updated;
+                      localStorage.setItem(`${customPrefix}${dStr}`, JSON.stringify(nextCustom[dStr]));
+                      if (user) {
+                          setDoc(doc(db, 'users', user.uid, 'schedules', dStr), { schedule: nextCustom[dStr] }).catch(console.error);
                       }
                   }
               });
               
               return nextCustom;
           });
-          
-          localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify(nextSchedule));
-          if (user) {
-              try {
-                  await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
-              } catch(e) {
-                  console.error("Firebase save error", e);
-              }
-          }
       }
+  };
+
+  const deleteScheduleItem = async (dateStr: string, index: number, applyMode: 'today' | 'all' | 'all_except' = 'today') => {
+      const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
+      const originalItem = current[index];
+      const updatedItem = { ...originalItem, isDeleted: true };
+      return updateScheduleItem(dateStr, index, updatedItem, applyMode);
   };
 
   const addScheduleItem = async (dateStr: string, newItem: ScheduleItem) => {
@@ -733,6 +760,7 @@ export function useSchedule() {
     getCurrentWeekAnalytics,
     getResolvedSchedule,
     updateScheduleItem,
+    deleteScheduleItem,
     addScheduleItem,
     loadScheduleForDate,
     user

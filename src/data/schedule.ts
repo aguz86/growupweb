@@ -7,6 +7,7 @@ export type ScheduleItem = {
   notes: string;
   isBreak: boolean;
   excludedDays?: number[]; // 0 = Sunday, 1 = Monday, etc.
+  isDeleted?: boolean; // Flag to indicate if the task is deleted across global schedule
 };
 
 const commonMorningSleep: Omit<ScheduleItem, 'id'>[] = [

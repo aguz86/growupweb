@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { ScheduleItem } from '../data/schedule';
-import { X, Save } from 'lucide-react';
+import { X, Save, Trash2 } from 'lucide-react';
 
 interface EditTaskModalProps {
   item: ScheduleItem;
   isOpen: boolean;
   onClose: () => void;
   onSave: (updatedItem: ScheduleItem, applyMode: 'today' | 'all' | 'all_except') => void;
+  onDelete?: (applyMode: 'today' | 'all' | 'all_except') => void;
 }
 
-export function EditTaskModal({ item, isOpen, onClose, onSave }: EditTaskModalProps) {
+export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditTaskModalProps) {
   const [formData, setFormData] = useState<ScheduleItem>(item);
   const [applyMode, setApplyMode] = useState<'today' | 'all' | 'all_except'>('today');
 
@@ -134,14 +135,24 @@ export function EditTaskModal({ item, isOpen, onClose, onSave }: EditTaskModalPr
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors">
-            Cancel
-          </button>
-          <button onClick={() => { onSave(formData, applyMode); onClose(); }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm">
-            <Save className="w-4 h-4" />
-            Save Task
-          </button>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+          <div>
+            {onDelete && (
+              <button onClick={() => { onDelete(applyMode); onClose(); }} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
+                <Trash2 className="w-4 h-4" />
+                Hapus Task Ini
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors">
+              Cancel
+            </button>
+            <button onClick={() => { onSave(formData, applyMode); onClose(); }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm">
+              <Save className="w-4 h-4" />
+              Save Task
+            </button>
+          </div>
         </div>
       </div>
     </div>
