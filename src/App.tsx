@@ -239,7 +239,7 @@ export default function App() {
           <AuthMenu />
         </div>
         
-        <MotivationalNote />
+        <MotivationalNote onNotification={showNotification} />
 
         {/* Navigation / Tabs */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">

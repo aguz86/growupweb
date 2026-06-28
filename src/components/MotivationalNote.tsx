@@ -9,7 +9,11 @@ interface Note {
     content: string;
 }
 
-export function MotivationalNote() {
+interface MotivationalNoteProps {
+    onNotification?: (msg: string) => void;
+}
+
+export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
     const [notes, setNotes] = useState<Note[]>([{ id: 'default', content: 'Tulis motivasi harianmu di sini...' }]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [tempNote, setTempNote] = useState("");
@@ -56,12 +60,15 @@ export function MotivationalNote() {
         setNotes(newNotes);
         setEditingId(null);
         await saveNotesToDB(newNotes);
+        if (onNotification) onNotification("Note tersimpan");
     };
 
-    const handleDeleteNote = async (id: string) => {
+    const handleDeleteNote = async (id: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
         const newNotes = notes.filter(n => n.id !== id);
         setNotes(newNotes);
         await saveNotesToDB(newNotes);
+        if (onNotification) onNotification("Note dihapus");
     };
 
     const handleAddNote = async () => {
@@ -123,30 +130,37 @@ export function MotivationalNote() {
                                 </div>
                             </div>
                         ) : (
-                            <>
-                                <p className="text-gray-800 text-sm font-medium whitespace-pre-wrap leading-relaxed flex-1 pt-1">
+                            <div 
+                                className="flex-1 flex flex-col cursor-pointer"
+                                onClick={() => {
+                                    setTempNote(note.content);
+                                    setEditingId(note.id);
+                                }}
+                            >
+                                <p className="text-gray-800 text-sm font-medium whitespace-pre-wrap leading-relaxed flex-1 pt-1 mb-6">
                                     {note.content}
                                 </p>
-                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-100/80 backdrop-blur-sm p-1 rounded-md">
+                                <div className="absolute top-2 right-2 flex gap-1 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-100/80 backdrop-blur-sm p-1 rounded-md">
                                     <button 
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             setTempNote(note.content);
                                             setEditingId(note.id);
                                         }}
-                                        className="p-1.5 rounded-full text-yellow-700 hover:text-yellow-900 hover:bg-yellow-200 transition-colors"
+                                        className="p-1.5 rounded-full text-yellow-700 hover:text-yellow-900 hover:bg-yellow-200 transition-colors bg-white/50 shadow-sm"
                                         title="Edit Note"
                                     >
                                         <Edit2 className="w-3.5 h-3.5" />
                                     </button>
                                     <button 
-                                        onClick={() => handleDeleteNote(note.id)}
-                                        className="p-1.5 rounded-full text-red-600 hover:text-red-800 hover:bg-red-100 transition-colors"
+                                        onClick={(e) => handleDeleteNote(note.id, e)}
+                                        className="p-1.5 rounded-full text-red-600 hover:text-red-800 hover:bg-red-100 transition-colors bg-white/50 shadow-sm"
                                         title="Hapus Note"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
-                            </>
+                            </div>
                         )}
                     </div>
                 ))}
