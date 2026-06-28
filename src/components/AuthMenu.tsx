@@ -17,11 +17,16 @@ export function AuthMenu() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (e: any) {
+      if (e.code === 'auth/popup-closed-by-user') {
+        // Silently ignore or set a mild error, user closed popup
+        return;
+      }
+      
       console.error("Login fail", e);
       if (e.code === 'auth/unauthorized-domain' || (e.message && e.message.includes('auth/unauthorized-domain'))) {
         setAuthError(`Akses Ditolak. Tambahkan domain berikut di Firebase Console (Authentication > Settings > Authorized domains): ${window.location.hostname}`);
       } else {
-        alert(`Gagal login: ${e.message}`);
+        setAuthError(`Gagal login: ${e.message}`);
       }
     }
   };
