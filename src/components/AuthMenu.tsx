@@ -5,6 +5,7 @@ import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
 export function AuthMenu() {
   const [user, setUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(setUser);
@@ -12,12 +13,13 @@ export function AuthMenu() {
   }, []);
 
   const login = async () => {
+    setAuthError(null);
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (e: any) {
       console.error("Login fail", e);
       if (e.code === 'auth/unauthorized-domain' || (e.message && e.message.includes('auth/unauthorized-domain'))) {
-        alert(`Akses Login Ditolak (auth/unauthorized-domain).\n\nLangkah perbaikan:\n1. Buka Firebase Console\n2. Buka Authentication -> Settings -> Authorized domains\n3. Klik "Add domain" dan masukkan URL berikut:\n\n${window.location.hostname}\n\nSetelah ditambahkan, coba login kembali.`);
+        setAuthError(`Akses Ditolak. Tambahkan domain berikut di Firebase Console (Authentication > Settings > Authorized domains): ${window.location.hostname}`);
       } else {
         alert(`Gagal login: ${e.message}`);
       }
@@ -41,9 +43,17 @@ export function AuthMenu() {
   }
 
   return (
-    <button onClick={login} className="flex items-center gap-2 bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm">
-      <LogIn className="w-4 h-4" />
-      <span>Login</span>
-    </button>
+    <div className="relative">
+      <button onClick={login} className="flex items-center gap-2 bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm">
+        <LogIn className="w-4 h-4" />
+        <span>Login</span>
+      </button>
+      {authError && (
+        <div className="absolute top-full right-0 mt-2 w-72 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl shadow-lg z-50">
+          <p className="font-semibold mb-1">Error Login</p>
+          <p>{authError}</p>
+        </div>
+      )}
+    </div>
   );
 }
