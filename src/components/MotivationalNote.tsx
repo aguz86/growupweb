@@ -44,19 +44,22 @@ export function MotivationalNote() {
 
     if (isEditing) {
         return (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mt-4 px-4 sm:px-6 max-w-7xl mx-auto w-full animate-in fade-in duration-200">
-                <input 
-                    type="text" 
+            <div className="flex flex-col sm:flex-row items-start gap-2 mt-6 mb-4 px-4 sm:px-6 max-w-7xl mx-auto w-full animate-in fade-in duration-200">
+                <textarea 
                     value={tempNote}
                     onChange={(e) => setTempNote(e.target.value)}
-                    className="flex-1 bg-white/10 text-white placeholder-white/50 border border-white/30 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 w-full"
+                    className="flex-1 bg-yellow-50 text-gray-800 placeholder-gray-400 border-2 border-yellow-400 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full min-h-[80px] resize-y"
                     placeholder="Apa motivasimu hari ini?"
                     autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && saveNote()}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.ctrlKey) {
+                            saveNote();
+                        }
+                    }}
                 />
                 <button 
                     onClick={saveNote}
-                    className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white transition-colors whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 bg-yellow-400 text-yellow-900 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-yellow-500 transition-colors whitespace-nowrap self-end sm:self-auto"
                 >
                     <Check className="w-4 h-4" />
                     Simpan
@@ -66,18 +69,22 @@ export function MotivationalNote() {
     }
 
     return (
-        <div className="flex items-center gap-3 mt-4 px-4 sm:px-6 max-w-7xl mx-auto group animate-in fade-in duration-200">
-            <p className="text-emerald-50 text-sm font-medium italic">"{note}"</p>
-            <button 
-                onClick={() => {
-                    setTempNote(note);
-                    setIsEditing(true);
-                }}
-                className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
-                title="Edit Motivasi"
-            >
-                <Edit2 className="w-3.5 h-3.5" />
-            </button>
+        <div className="mt-6 mb-4 px-4 sm:px-6 max-w-7xl mx-auto w-full animate-in fade-in duration-200">
+            <div className="group relative bg-yellow-100 border-2 border-yellow-400 rounded-lg p-4 shadow-sm w-full transition-all hover:shadow-md">
+                <p className="text-gray-800 text-sm font-medium whitespace-pre-wrap leading-relaxed">
+                    {note}
+                </p>
+                <button 
+                    onClick={() => {
+                        setTempNote(note);
+                        setIsEditing(true);
+                    }}
+                    className="absolute top-2 right-2 p-1.5 rounded-full text-yellow-600 hover:text-yellow-800 hover:bg-yellow-200 opacity-0 group-hover:opacity-100 transition-all"
+                    title="Edit Motivasi"
+                >
+                    <Edit2 className="w-4 h-4" />
+                </button>
+            </div>
         </div>
     );
 }

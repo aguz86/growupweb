@@ -701,12 +701,12 @@ export default function App() {
           onSave={async (updated, applyMode) => {
             await updateScheduleItem(editingTask.dateStr, editingTask.index, updated, applyMode);
             setEditingTask(null);
-            showNotification("Tugas berhasil disimpan!");
+            showNotification("Task tersimpan");
           }}
           onDelete={async (applyMode) => {
             await deleteScheduleItem(editingTask.dateStr, editingTask.index, applyMode);
             setEditingTask(null);
-            showNotification("Tugas berhasil dihapus!");
+            showNotification("Task dihapus");
           }}
         />
       )}
@@ -729,7 +729,7 @@ export default function App() {
 
             await addScheduleItem(isAddingTaskForDate, newItem);
             setIsAddingTaskForDate(null);
-            showNotification("Tugas berhasil ditambahkan!");
+            showNotification("Task tersimpan");
           }}
         />
       )}
