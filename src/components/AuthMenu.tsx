@@ -15,7 +15,8 @@ export function AuthMenu() {
   const login = async () => {
     setAuthError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      setUser(result.user);
     } catch (e: any) {
       if (e.code === 'auth/popup-closed-by-user') {
         // Silently ignore or set a mild error, user closed popup

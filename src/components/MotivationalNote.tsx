@@ -140,7 +140,14 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
                                 <p className="text-gray-800 text-sm font-medium whitespace-pre-wrap leading-relaxed flex-1 pt-1 mb-6">
                                     {note.content}
                                 </p>
-                                <div className="absolute top-2 right-2 flex gap-1 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-100/80 backdrop-blur-sm p-1 rounded-md">
+                                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-100/80 backdrop-blur-sm p-1 rounded-md">
+                                    <button 
+                                        onClick={(e) => handleDeleteNote(note.id, e)}
+                                        className="p-1.5 rounded-full text-red-600 hover:text-red-800 hover:bg-red-100 transition-colors bg-white/50 shadow-sm"
+                                        title="Hapus Note"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
                                     <button 
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -151,13 +158,6 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
                                         title="Edit Note"
                                     >
                                         <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                        onClick={(e) => handleDeleteNote(note.id, e)}
-                                        className="p-1.5 rounded-full text-red-600 hover:text-red-800 hover:bg-red-100 transition-colors bg-white/50 shadow-sm"
-                                        title="Hapus Note"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </div>
