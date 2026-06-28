@@ -35,8 +35,10 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
 
   if (!isOpen) return null;
 
-  const handleExcludeDayToggle = (day: number) => {
+  const handleIncludeDayToggle = (day: number) => {
     const currentExcluded = formData.excludedDays || [];
+    // If it's currently excluded, we want to include it (remove from excluded)
+    // If it's currently included, we want to exclude it (add to excluded)
     if (currentExcluded.includes(day)) {
       setFormData({ ...formData, excludedDays: currentExcluded.filter(d => d !== day) });
     } else {
@@ -106,30 +108,33 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
             <label className="text-xs font-semibold text-gray-700 mb-1">Terapkan Perubahan:</label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="applyMode" value="today" checked={applyMode === 'today'} onChange={() => { setApplyMode('today'); setFormData({ ...formData, excludedDays: [] }); }} className="text-emerald-600 focus:ring-emerald-500" />
-              <span className="text-sm text-gray-700">Hanya hari ini saja</span>
+              <span className="text-sm text-gray-700">Hanya hari ini saja (Sekali)</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="applyMode" value="all" checked={applyMode === 'all'} onChange={() => { setApplyMode('all'); setFormData({ ...formData, excludedDays: [] }); }} className="text-emerald-600 focus:ring-emerald-500" />
-              <span className="text-sm text-gray-700">Semua hari (Setiap hari di jam ini)</span>
+              <span className="text-sm text-gray-700">Setiap Hari</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="applyMode" value="all_except" checked={applyMode === 'all_except'} onChange={() => setApplyMode('all_except')} className="text-emerald-600 focus:ring-emerald-500" />
-              <span className="text-sm text-gray-700">Semua hari kecuali...</span>
+              <span className="text-sm text-gray-700">Pilih Hari Pengulangan (Berulang)</span>
             </label>
             
             {applyMode === 'all_except' && (
               <div className="ml-6 mt-1 flex flex-wrap gap-2">
-                {DAYS.map(day => (
+                {DAYS.map(day => {
+                  const isIncluded = !(formData.excludedDays || []).includes(day.value);
+                  return (
                   <label key={day.value} className="flex items-center gap-1.5 cursor-pointer bg-white px-2 py-1 border border-gray-200 rounded-md">
                     <input 
                       type="checkbox" 
-                      checked={(formData.excludedDays || []).includes(day.value)}
-                      onChange={() => handleExcludeDayToggle(day.value)}
+                      checked={isIncluded}
+                      onChange={() => handleIncludeDayToggle(day.value)}
                       className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
                     />
                     <span className="text-xs text-gray-700">{day.label}</span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

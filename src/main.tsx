@@ -29,7 +29,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // Ensure the Google OAuth client ID is available.
-const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID || 'missing_client_id';
 
 function Router() {
   const path = window.location.pathname;
