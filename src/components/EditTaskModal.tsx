@@ -66,7 +66,7 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
           </button>
         </div>
         
-        <div className="p-6 flex flex-col gap-4">
+        <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Start Time</label>
@@ -140,22 +140,22 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-          <div>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-between items-center gap-3">
+          <div className="w-full sm:w-auto">
             {onDelete && (
-              <button onClick={() => { onDelete(applyMode); onClose(); }} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
+              <button onClick={() => { onDelete(applyMode); onClose(); }} className="w-full sm:w-auto flex justify-center items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
                 <Trash2 className="w-4 h-4" />
                 Hapus Task Ini
               </button>
             )}
           </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors">
-              Cancel
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <button onClick={onClose} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors">
+              Batal
             </button>
-            <button onClick={() => { onSave(formData, applyMode); onClose(); }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm">
+            <button onClick={() => { onSave(formData, applyMode); onClose(); }} className="w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm">
               <Save className="w-4 h-4" />
-              Save Task
+              Simpan
             </button>
           </div>
         </div>
