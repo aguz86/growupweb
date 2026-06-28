@@ -946,6 +946,10 @@ export default function App() {
       <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 py-8 text-center mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4">
           <p>&copy; {new Date().getFullYear()} GROW UP | Habit Changer. All rights reserved.</p>
+          <div className="flex gap-4 text-sm mt-2">
+            <a href="/privacy" className="hover:text-emerald-400 transition-colors">Privacy Policy</a>
+            <a href="/terms" className="hover:text-emerald-400 transition-colors">Terms of Service</a>
+          </div>
           <button 
             onClick={handleDownloadApp}
             className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-medium transition-colors shadow-sm text-sm"
