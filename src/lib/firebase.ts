@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
 import firebaseConfig from "../../firebase-applet-config.json";
 
 // Read Cloudflare proxy domain from localStorage if set by user
@@ -16,3 +16,7 @@ export const app = initializeApp(appConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // CRITICAL
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error("Firebase Auth persistence error:", err);
+});

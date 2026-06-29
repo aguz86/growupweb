@@ -8,14 +8,19 @@ export function AuthMenu() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(setUser);
+    const unsub = auth.onAuthStateChanged((u) => {
+      console.log("Auth state changed:", u ? u.email : "null");
+      setUser(u);
+    });
     return unsub;
   }, []);
 
   const login = async () => {
     setAuthError(null);
     try {
+      console.log("Starting sign in with popup...");
       const result = await signInWithPopup(auth, googleProvider);
+      console.log("Sign in successful:", result.user.email);
       setUser(result.user);
     } catch (e: any) {
       if (e.code === 'auth/popup-closed-by-user') {
