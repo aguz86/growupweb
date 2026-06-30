@@ -11,6 +11,8 @@ interface EditTaskModalProps {
 }
 
 export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditTaskModalProps) {
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState<ScheduleItem>(item);
   const [applyMode, setApplyMode] = useState<'today' | 'all' | 'all_except'>('today');
 
@@ -31,7 +33,9 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
     } else {
       setApplyMode('today');
     }
-  }, [item]);
+    setIsSaving(false);
+    setIsDeleting(false);
+  }, [item, isOpen]);
 
   if (!isOpen) return null;
 
@@ -54,6 +58,33 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
     let duration = (endH * 60 + endM) - (startH * 60 + startM);
     if (duration < 0) duration += 24 * 60; // if it spans midnight
     return duration;
+  };
+
+  const handleSave = async () => {
+      setIsSaving(true);
+      try {
+          await onSave(formData, applyMode);
+          onClose();
+      } catch (e) {
+          console.error(e);
+          alert("Terjadi kesalahan saat menyimpan");
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const handleDelete = async () => {
+      if (!onDelete) return;
+      setIsDeleting(true);
+      try {
+          await onDelete(applyMode);
+          onClose();
+      } catch (e) {
+          console.error(e);
+          alert("Terjadi kesalahan saat menghapus");
+      } finally {
+          setIsDeleting(false);
+      }
   };
 
   return (
@@ -143,19 +174,19 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-between items-center gap-3">
           <div className="w-full sm:w-auto">
             {onDelete && (
-              <button onClick={() => { onDelete(applyMode); onClose(); }} className="w-full sm:w-auto flex justify-center items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
+              <button onClick={handleDelete} disabled={isSaving || isDeleting} className="w-full sm:w-auto flex justify-center items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100 disabled:opacity-50">
                 <Trash2 className="w-4 h-4" />
-                Hapus Task Ini
+                {isDeleting ? "Menghapus..." : "Hapus Task Ini"}
               </button>
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <button onClick={onClose} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors">
+            <button onClick={onClose} disabled={isSaving || isDeleting} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50">
               Batal
             </button>
-            <button onClick={() => { onSave(formData, applyMode); onClose(); }} className="w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm">
+            <button onClick={handleSave} disabled={isSaving || isDeleting} className="w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm disabled:opacity-50">
               <Save className="w-4 h-4" />
-              Simpan
+              {isSaving ? "Menyimpan..." : "Simpan"}
             </button>
           </div>
         </div>

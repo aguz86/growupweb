@@ -96,9 +96,8 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               }
               if (onNotification) {
                   onNotification('Data task berhasil diimpor! Memuat ulang...');
-              } else {
-                  console.log('Data task berhasil diimpor! Memuat ulang...');
               }
+              alert('Data task berhasil diimpor! Memuat ulang...');
               setTimeout(() => {
                   window.location.reload();
               }, 1500);
@@ -151,9 +150,8 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               }
               if (onNotification) {
                   onNotification('Data note berhasil diimpor! Memuat ulang...');
-              } else {
-                  console.log('Data note berhasil diimpor! Memuat ulang...');
               }
+              alert('Data note berhasil diimpor! Memuat ulang...');
               setTimeout(() => {
                   window.location.reload();
               }, 1500);

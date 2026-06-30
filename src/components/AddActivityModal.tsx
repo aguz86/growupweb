@@ -9,6 +9,7 @@ interface AddActivityModalProps {
 }
 
 export function AddActivityModal({ isOpen, onClose, onSave }: AddActivityModalProps) {
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<ScheduleItem>({
     id: `custom-${Date.now()}`,
     start: '12:00',
@@ -30,6 +31,7 @@ export function AddActivityModal({ isOpen, onClose, onSave }: AddActivityModalPr
         notes: '',
         isBreak: false
       });
+      setIsSaving(false);
     }
   }, [isOpen]);
 
@@ -41,6 +43,20 @@ export function AddActivityModal({ isOpen, onClose, onSave }: AddActivityModalPr
     let duration = (endH * 60 + endM) - (startH * 60 + startM);
     if (duration < 0) duration += 24 * 60; // if it spans midnight
     return duration;
+  };
+
+  const handleSave = async () => {
+    if (!formData.activity.trim()) return alert("Nama aktivitas wajib diisi.");
+    setIsSaving(true);
+    try {
+        await onSave(formData);
+        onClose();
+    } catch (e) {
+        console.error(e);
+        alert("Terjadi kesalahan saat menyimpan");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -95,16 +111,12 @@ export function AddActivityModal({ isOpen, onClose, onSave }: AddActivityModalPr
         </div>
 
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3">
-          <button onClick={onClose} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors">
+          <button onClick={onClose} disabled={isSaving} className="w-full sm:w-auto justify-center px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50">
             Batal
           </button>
-          <button onClick={() => { 
-            if (!formData.activity.trim()) return alert("Nama aktivitas wajib diisi.");
-            onSave(formData); 
-            onClose(); 
-          }} className="w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm">
+          <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto flex justify-center items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-colors shadow-sm disabled:opacity-50">
             <Plus className="w-4 h-4" />
-            Tambah
+            {isSaving ? "Menyimpan..." : "Tambah"}
           </button>
         </div>
       </div>
