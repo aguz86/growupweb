@@ -752,12 +752,12 @@ export default function App() {
           onSave={async (updated, applyMode) => {
             await updateScheduleItem(editingTask.dateStr, editingTask.index, updated, applyMode);
             setEditingTask(null);
-            showNotification("Task tersimpan");
+            showNotification("Data tersimpan");
           }}
           onDelete={async (applyMode) => {
             await deleteScheduleItem(editingTask.dateStr, editingTask.index, applyMode);
             setEditingTask(null);
-            showNotification("Task dihapus");
+            showNotification("Data dihapus");
           }}
         />
       )}
@@ -780,7 +780,7 @@ export default function App() {
 
             await addScheduleItem(isAddingTaskForDate, newItem);
             setIsAddingTaskForDate(null);
-            showNotification("Task tersimpan");
+            showNotification("Data tersimpan");
           }}
         />
       )}

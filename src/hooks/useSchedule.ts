@@ -404,58 +404,66 @@ export function useSchedule() {
               }
           }
           
-          setCustomSchedules(prev => {
-              const nextCustom = { ...prev };
-              if (!nextCustom[dateStr]) {
-                  nextCustom[dateStr] = nextSchedule;
+          const nextCustom = { ...customSchedules };
+          if (!nextCustom[dateStr]) {
+              nextCustom[dateStr] = nextSchedule;
+          }
+          
+          const updateDay = (dStr: string, scheduleArray: ScheduleItem[]) => {
+              const dateObj = parse(dStr, 'yyyy-MM-dd', new Date());
+              const dayOfWeek = dateObj.getDay();
+              let changed = false;
+              let shouldExclude = updatedItem.excludedDays && updatedItem.excludedDays.includes(dayOfWeek);
+
+              const updated = scheduleArray.map(item => {
+                  if (item.id === originalItem.id || item.start === baseStartTime) {
+                      changed = true;
+                      if (shouldExclude) {
+                          const baseScheduleForDay = getScheduleForDate(dateObj);
+                          const baseItemForDay = baseScheduleForDay.find(b => b.start === baseStartTime);
+                          return baseItemForDay ? baseItemForDay : null;
+                      }
+                      return { ...updatedItem, id: item.id };
+                  }
+                  return item;
+              }).filter(Boolean) as ScheduleItem[];
+              
+              if (!changed && !shouldExclude) {
+                  updated.push({ ...updatedItem, id: originalItem.id });
+                  changed = true;
               }
               
-              const updateDay = (dStr: string, scheduleArray: ScheduleItem[]) => {
-                  const dateObj = parse(dStr, 'yyyy-MM-dd', new Date());
-                  const dayOfWeek = dateObj.getDay();
-                  let changed = false;
-                  let shouldExclude = updatedItem.excludedDays && updatedItem.excludedDays.includes(dayOfWeek);
+              if (changed || dStr === dateStr) {
+                  updated.sort((a, b) => a.start.localeCompare(b.start));
+              }
+              return { updated, changed };
+          };
 
-                  const updated = scheduleArray.map(item => {
-                      if (item.id === originalItem.id || item.start === baseStartTime) {
-                          changed = true;
-                          if (shouldExclude) {
-                              const baseScheduleForDay = getScheduleForDate(dateObj);
-                              const baseItemForDay = baseScheduleForDay.find(b => b.start === baseStartTime);
-                              return baseItemForDay ? baseItemForDay : null;
-                          }
-                          return { ...updatedItem, id: item.id };
-                      }
-                      return item;
-                  }).filter(Boolean) as ScheduleItem[];
-                  
-                  if (!changed && !shouldExclude) {
-                      updated.push({ ...updatedItem, id: originalItem.id });
-                      changed = true;
-                  }
-                  
-                  if (changed || dStr === dateStr) {
-                      updated.sort((a, b) => a.start.localeCompare(b.start));
-                  }
-                  return { updated, changed };
-              };
+          const updatePromises: Promise<void>[] = [];
 
-              // First update all cached days, INCLUDING dateStr
-              Object.keys(nextCustom).forEach(dStr => {
-                  const scheduleToUpdate = dStr === dateStr ? nextSchedule : nextCustom[dStr];
-                  const res = updateDay(dStr, scheduleToUpdate);
-                  
-                  if (res.changed || dStr === dateStr) {
-                      nextCustom[dStr] = res.updated;
-                      localStorage.setItem(`${customPrefix}${dStr}`, JSON.stringify(nextCustom[dStr]));
-                      if (user) {
-                          setDoc(doc(db, 'users', user.uid, 'schedules', dStr), { schedule: nextCustom[dStr] }).catch(console.error);
-                      }
-                  }
-              });
+          // First update all cached days, INCLUDING dateStr
+          Object.keys(nextCustom).forEach(dStr => {
+              const scheduleToUpdate = dStr === dateStr ? nextSchedule : nextCustom[dStr];
+              const res = updateDay(dStr, scheduleToUpdate);
               
-              return nextCustom;
+              if (res.changed || dStr === dateStr) {
+                  nextCustom[dStr] = res.updated;
+                  localStorage.setItem(`${customPrefix}${dStr}`, JSON.stringify(nextCustom[dStr]));
+                  if (user) {
+                      updatePromises.push(setDoc(doc(db, 'users', user.uid, 'schedules', dStr), { schedule: nextCustom[dStr] }));
+                  }
+              }
           });
+          
+          setCustomSchedules(nextCustom);
+          
+          if (updatePromises.length > 0) {
+              try {
+                  await Promise.all(updatePromises);
+              } catch (e) {
+                  console.error("Firebase save error", e);
+              }
+          }
       }
   };
 
