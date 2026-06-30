@@ -332,6 +332,10 @@ export default function App() {
                          <div className="flex">
                              <button
                                 onClick={async () => {
+                                  if (!user) {
+                                    alert('Harap login terlebih dahulu');
+                                    return;
+                                  }
                                   if (window.confirm('Yakin ingin menghapus semua task hari ini?')) {
                                     await deleteAllScheduleItems(currentDateStr);
                                     showNotification('Semua task hari ini berhasil dihapus');
@@ -589,6 +593,10 @@ export default function App() {
                                 <div className="flex w-full sm:w-auto justify-end">
                                     <button
                                         onClick={async () => {
+                                          if (!user) {
+                                            alert('Harap login terlebih dahulu');
+                                            return;
+                                          }
                                           if (window.confirm('Yakin ingin menghapus semua task pada tanggal ini?')) {
                                             await deleteAllScheduleItems(selectedUpcomingDate);
                                             showNotification('Semua task berhasil dihapus');

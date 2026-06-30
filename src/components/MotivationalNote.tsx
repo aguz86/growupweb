@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { Edit2, Check, Plus, Trash2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -38,12 +38,14 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
             }
         }
 
-        getDoc(doc(db, 'users', user.uid, 'settings', 'motivation')).then(snap => {
+        const unsub = onSnapshot(doc(db, 'users', user.uid, 'settings', 'motivation'), (snap) => {
             if (snap.exists() && snap.data().notes) {
                 setNotes(snap.data().notes);
                 localStorage.setItem(`motivational_notes_${user.uid}`, JSON.stringify(snap.data().notes));
             }
         });
+
+        return () => unsub();
     }, [user]);
 
     const saveNotesToDB = async (newNotes: Note[]) => {
