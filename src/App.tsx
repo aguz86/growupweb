@@ -237,7 +237,7 @@ export default function App() {
             </button>
           </div>
           
-          <AuthMenu />
+          <AuthMenu onNotification={showNotification} />
         </div>
         
         <MotivationalNote onNotification={showNotification} />

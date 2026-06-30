@@ -4,7 +4,11 @@ import { signOut, User } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
-export function AuthMenu() {
+export interface AuthMenuProps {
+  onNotification?: (message: string) => void;
+}
+
+export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -90,10 +94,20 @@ export function AuthMenu() {
                       }
                   }
               }
-              alert('Data task berhasil diimpor! Memuat ulang...');
-              window.location.reload();
+              if (onNotification) {
+                  onNotification('Data task berhasil diimpor! Memuat ulang...');
+              } else {
+                  console.log('Data task berhasil diimpor! Memuat ulang...');
+              }
+              setTimeout(() => {
+                  window.location.reload();
+              }, 1500);
           } catch(err) {
-              alert('Gagal mengimpor file. Pastikan file backup valid.');
+              if (onNotification) {
+                  onNotification('Gagal mengimpor file. Pastikan file backup valid.');
+              } else {
+                  alert('Gagal mengimpor file. Pastikan file backup valid.');
+              }
           }
       };
       reader.readAsText(file);
@@ -135,10 +149,20 @@ export function AuthMenu() {
                       }
                   }
               }
-              alert('Data note berhasil diimpor! Memuat ulang...');
-              window.location.reload();
+              if (onNotification) {
+                  onNotification('Data note berhasil diimpor! Memuat ulang...');
+              } else {
+                  console.log('Data note berhasil diimpor! Memuat ulang...');
+              }
+              setTimeout(() => {
+                  window.location.reload();
+              }, 1500);
           } catch(err) {
-              alert('Gagal mengimpor file. Pastikan file backup valid.');
+              if (onNotification) {
+                  onNotification('Gagal mengimpor file. Pastikan file backup valid.');
+              } else {
+                  alert('Gagal mengimpor file. Pastikan file backup valid.');
+              }
           }
       };
       reader.readAsText(file);
