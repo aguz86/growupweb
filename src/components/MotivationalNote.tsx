@@ -14,7 +14,7 @@ interface MotivationalNoteProps {
 }
 
 export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
-    const [notes, setNotes] = useState<Note[]>([{ id: 'default', content: 'Tulis motivasi harianmu di sini...' }]);
+    const [notes, setNotes] = useState<Note[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [tempNote, setTempNote] = useState("");
     const [user, setUser] = useState(auth.currentUser);
@@ -24,7 +24,12 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
     }, []);
 
     useEffect(() => {
-        const localNotes = localStorage.getItem('motivational_notes');
+        if (!user) {
+            setNotes([]);
+            return;
+        }
+
+        const localNotes = localStorage.getItem(`motivational_notes_${user.uid}`);
         if (localNotes) {
             try {
                 setNotes(JSON.parse(localNotes));
@@ -33,29 +38,26 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
             }
         }
 
-        if (user) {
-            getDoc(doc(db, 'users', user.uid, 'settings', 'motivation')).then(snap => {
-                if (snap.exists() && snap.data().notes) {
-                    setNotes(snap.data().notes);
-                    localStorage.setItem('motivational_notes', JSON.stringify(snap.data().notes));
-                }
-            });
-        }
+        getDoc(doc(db, 'users', user.uid, 'settings', 'motivation')).then(snap => {
+            if (snap.exists() && snap.data().notes) {
+                setNotes(snap.data().notes);
+                localStorage.setItem(`motivational_notes_${user.uid}`, JSON.stringify(snap.data().notes));
+            }
+        });
     }, [user]);
 
     const saveNotesToDB = async (newNotes: Note[]) => {
-        localStorage.setItem('motivational_notes', JSON.stringify(newNotes));
-        if (user) {
-            try {
-                await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: newNotes }, { merge: true });
-            } catch (e) {
-                console.error("Error saving notes", e);
-            }
+        if (!user) return;
+        localStorage.setItem(`motivational_notes_${user.uid}`, JSON.stringify(newNotes));
+        try {
+            await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: newNotes }, { merge: true });
+        } catch (e) {
+            console.error("Error saving notes", e);
         }
     }
 
     const handleSaveNote = async () => {
-        if (!editingId) return;
+        if (!editingId || !user) return;
         const newNotes = notes.map(n => n.id === editingId ? { ...n, content: tempNote } : n);
         setNotes(newNotes);
         setEditingId(null);
@@ -65,6 +67,7 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
 
     const handleDeleteNote = async (id: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
+        if (!user) return;
         const newNotes = notes.filter(n => n.id !== id);
         setNotes(newNotes);
         await saveNotesToDB(newNotes);
@@ -72,6 +75,10 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
     };
 
     const handleAddNote = async () => {
+        if (!user) {
+            alert('Harap login terlebih dahulu untuk menambah catatan');
+            return;
+        }
         if (notes.length >= 4) return;
         const newNote = { id: Date.now().toString(), content: 'Catatan baru...' };
         const newNotes = [...notes, newNote];

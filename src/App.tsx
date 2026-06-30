@@ -316,7 +316,13 @@ export default function App() {
                                {isExporting ? 'Mengekspor...' : 'Ekspor ke Google Tasks'}
                              </button>
                              <button
-                                onClick={() => setIsAddingTaskForDate(currentDateStr)}
+                                onClick={() => {
+                                  if (!user) {
+                                    alert('Harap login terlebih dahulu untuk menambah aktivitas');
+                                    return;
+                                  }
+                                  setIsAddingTaskForDate(currentDateStr);
+                                }}
                                 className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 py-1.5 px-3 rounded-full transition-colors w-fit shadow-sm"
                              >
                                <CalendarPlus className="w-3.5 h-3.5" />
@@ -567,7 +573,13 @@ export default function App() {
                                         {isExporting ? 'Mengekspor...' : 'Ekspor ke Google Tasks'}
                                     </button>
                                     <button
-                                        onClick={() => setIsAddingTaskForDate(selectedUpcomingDate)}
+                                        onClick={() => {
+                                          if (!user) {
+                                            alert('Harap login terlebih dahulu untuk menambah aktivitas');
+                                            return;
+                                          }
+                                          setIsAddingTaskForDate(selectedUpcomingDate);
+                                        }}
                                         className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
                                     >
                                         <CalendarPlus className="w-4 h-4" />
