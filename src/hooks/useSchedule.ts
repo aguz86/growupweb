@@ -381,11 +381,8 @@ export function useSchedule() {
           localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify(nextSchedule));
 
           if (user) {
-              try {
-                  await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
-              } catch(e) {
-                  console.error("Firebase save error", e);
-              }
+              setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule })
+                  .catch(e => console.error("Firebase save error", e));
           }
       } else {
           const baseSchedule = getScheduleForDate(parse(dateStr, 'yyyy-MM-dd', new Date()));
@@ -397,11 +394,8 @@ export function useSchedule() {
           localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
           
           if (user) {
-              try {
-                  await setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true });
-              } catch (e) {
-                  console.error("Firebase save error", e);
-              }
+              setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true })
+                  .catch(e => console.error("Firebase save error", e));
           }
           
           const nextCustom = { ...customSchedules };
@@ -458,11 +452,7 @@ export function useSchedule() {
           setCustomSchedules(nextCustom);
           
           if (updatePromises.length > 0) {
-              try {
-                  await Promise.all(updatePromises);
-              } catch (e) {
-                  console.error("Firebase save error", e);
-              }
+              Promise.all(updatePromises).catch(e => console.error("Firebase save error", e));
           }
       }
   };
@@ -481,11 +471,8 @@ export function useSchedule() {
       localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify([]));
 
       if (user) {
-          try {
-              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: [] });
-          } catch(e) {
-              console.error("Firebase save error", e);
-          }
+          setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: [] })
+              .catch(e => console.error("Firebase save error", e));
       }
   };
 
@@ -502,11 +489,8 @@ export function useSchedule() {
       localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify(nextSchedule));
 
       if (user) {
-          try {
-              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule });
-          } catch(e) {
-              console.error("Firebase save error", e);
-          }
+          setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: nextSchedule })
+              .catch(e => console.error("Firebase save error", e));
       }
   };
 
