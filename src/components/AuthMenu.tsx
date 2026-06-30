@@ -70,27 +70,57 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
       reader.onload = async (event) => {
           try {
               const data = JSON.parse(event.target?.result as string);
+              
+              // clear existing schedules for current user/anonymous to prevent old tasks from staying
+              const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
+              const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+              const productivityPrefix = user ? `productivity_${user.uid}_` : 'productivity_';
+              
+              const keysToRemove = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key && (key.startsWith(customPrefix) || key === globalPrefix || key.startsWith(productivityPrefix))) {
+                      // Only remove if it's an exact match for anonymous prefix (prevent removing user prefix when logged out, actually we want to clear the current scope)
+                      if (!user && key.startsWith('custom_schedule_') && key.split('_').length > 2) {
+                          // it's a user prefix like custom_schedule_UID_DATE, skip it
+                          continue;
+                      }
+                      if (!user && key.startsWith('productivity_') && key.split('_').length > 2) {
+                          continue;
+                      }
+                      keysToRemove.push(key);
+                  }
+              }
+              keysToRemove.forEach(k => localStorage.removeItem(k));
+
               for (const key in data) {
-                  localStorage.setItem(key, data[key]);
-                  if (user && key.startsWith(`custom_schedule_${user.uid}_`)) {
-                      const dateStr = key.replace(`custom_schedule_${user.uid}_`, '');
-                      try {
-                          await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: JSON.parse(data[key]) });
-                      } catch (e) {
-                          console.error(e);
+                  let dateMatch = key.match(/\d{4}-\d{2}-\d{2}$/);
+                  
+                  if (key.includes('globalOverrides')) {
+                      const newKey = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+                      localStorage.setItem(newKey, data[key]);
+                      if (user) {
+                          try {
+                              await setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: JSON.parse(data[key]) }, { merge: true });
+                          } catch (e) { console.error(e); }
                       }
-                  } else if (user && key === `globalOverrides_${user.uid}`) {
-                      try {
-                          await setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: JSON.parse(data[key]) }, { merge: true });
-                      } catch (e) {
-                          console.error(e);
+                  } else if (key.includes('custom_schedule_') && dateMatch) {
+                      const dateStr = dateMatch[0];
+                      const newKey = user ? `custom_schedule_${user.uid}_${dateStr}` : `custom_schedule_${dateStr}`;
+                      localStorage.setItem(newKey, data[key]);
+                      if (user) {
+                          try {
+                              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: JSON.parse(data[key]) });
+                          } catch (e) { console.error(e); }
                       }
-                  } else if (user && key.startsWith(`productivity_${user.uid}_`)) {
-                      const dateStr = key.replace(`productivity_${user.uid}_`, '');
-                      try {
-                          await setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: JSON.parse(data[key]) }, { merge: true });
-                      } catch (e) {
-                          console.error(e);
+                  } else if (key.includes('productivity_') && dateMatch) {
+                      const dateStr = dateMatch[0];
+                      const newKey = user ? `productivity_${user.uid}_${dateStr}` : `productivity_${dateStr}`;
+                      localStorage.setItem(newKey, data[key]);
+                      if (user) {
+                          try {
+                              await setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: JSON.parse(data[key]) }, { merge: true });
+                          } catch (e) { console.error(e); }
                       }
                   }
               }
@@ -108,6 +138,8 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
                   alert('Gagal mengimpor file. Pastikan file backup valid.');
               }
           }
+          // Reset input file value
+          e.target.value = '';
       };
       reader.readAsText(file);
   };
@@ -138,8 +170,9 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               const data = JSON.parse(event.target?.result as string);
               for (const key in data) {
                   if (key.startsWith('motivational_notes_')) {
-                      localStorage.setItem(key, data[key]);
-                      if (user && key === `motivational_notes_${user.uid}`) {
+                      const newKey = user ? `motivational_notes_${user.uid}` : 'motivational_notes_';
+                      localStorage.setItem(newKey, data[key]);
+                      if (user) {
                           try {
                               await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: JSON.parse(data[key]) }, { merge: true });
                           } catch (e) {
@@ -162,6 +195,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
                   alert('Gagal mengimpor file. Pastikan file backup valid.');
               }
           }
+          e.target.value = '';
       };
       reader.readAsText(file);
   };
