@@ -351,7 +351,7 @@ export function useSchedule() {
               return item;
           }).filter(Boolean) as ScheduleItem[];
           
-          Object.values(globalOverrides).forEach(override => {
+          Object.values(globalOverrides).forEach((override: any) => {
               if (override.isDeleted) return;
               if (!baseStartTimes.has(override.start)) {
                   if (!(override.excludedDays && override.excludedDays.includes(dayOfWeek))) {
@@ -463,6 +463,21 @@ export function useSchedule() {
       const originalItem = current[index];
       const updatedItem = { ...originalItem, isDeleted: true };
       return updateScheduleItem(dateStr, index, updatedItem, applyMode);
+  };
+
+  const deleteAllScheduleItems = async (dateStr: string) => {
+      const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
+      
+      setCustomSchedules(prev => ({ ...prev, [dateStr]: [] }));
+      localStorage.setItem(`${customPrefix}${dateStr}`, JSON.stringify([]));
+
+      if (user) {
+          try {
+              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: [] });
+          } catch(e) {
+              console.error("Firebase save error", e);
+          }
+      }
   };
 
   const addScheduleItem = async (dateStr: string, newItem: ScheduleItem) => {
@@ -761,6 +776,7 @@ export function useSchedule() {
     getResolvedSchedule,
     updateScheduleItem,
     deleteScheduleItem,
+    deleteAllScheduleItems,
     addScheduleItem,
     loadScheduleForDate,
     user

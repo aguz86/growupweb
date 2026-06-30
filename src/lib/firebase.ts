@@ -13,7 +13,7 @@ const appConfig = {
 };
 
 export const app = initializeApp(appConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // CRITICAL
+export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId); // CRITICAL
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 

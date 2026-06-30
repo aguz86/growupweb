@@ -37,7 +37,7 @@ function Router() {
     return <TermsOfService />;
   }
   
-  const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || import.meta.env.VITE_GOOGLE_CLIENT_ID || 'missing_client_id';
+  const clientId = (import.meta as any).env.VITE_GOOGLE_OAUTH_CLIENT_ID || (import.meta as any).env.VITE_GOOGLE_CLIENT_ID || 'missing_client_id';
   
   return (
     <GoogleOAuthProvider clientId={clientId}>

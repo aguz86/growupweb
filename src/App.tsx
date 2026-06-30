@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings, PieChart as PieChartIcon, ListTodo, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { CheckCircle2, Circle, BellDot, BellOff, Clock, Activity, BarChart3, Timer, Volume2, VolumeX, CalendarDays, Edit2, X, CalendarPlus, Settings, PieChart as PieChartIcon, ListTodo, ChevronRight, ArrowUp, ArrowDown, Trash2 } from 'lucide-react';
 import { useSchedule, playAlarmSound, speakText } from './hooks/useSchedule';
 import { cn } from './lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -50,6 +50,7 @@ export default function App() {
     getResolvedSchedule,
     updateScheduleItem,
     deleteScheduleItem,
+    deleteAllScheduleItems,
     addScheduleItem,
     user
   } = useSchedule();
@@ -322,6 +323,20 @@ export default function App() {
                                Tambah Aktivitas
                              </button>
                          </div>
+                         <div className="flex">
+                             <button
+                                onClick={async () => {
+                                  if (window.confirm('Yakin ingin menghapus semua task hari ini?')) {
+                                    await deleteAllScheduleItems(currentDateStr);
+                                    showNotification('Semua task hari ini berhasil dihapus');
+                                  }
+                                }}
+                                className="flex items-center justify-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 py-1.5 px-3 rounded-full transition-colors w-fit border border-red-200"
+                             >
+                               <Trash2 className="w-3.5 h-3.5" />
+                               Hapus Semua Task Hari Ini
+                             </button>
+                         </div>
                      </div>
                    </div>
                    <div className="text-sm px-3 py-1 bg-gray-100 rounded-full font-medium text-gray-600 shrink-0">
@@ -534,29 +549,45 @@ export default function App() {
                                 <CalendarDays className="w-5 h-5 text-indigo-600" />
                                 <h2 className="text-lg font-bold text-indigo-900">{dayName}, <span className="font-medium text-indigo-500">{selectedUpcomingDate}</span></h2>
                             </div>
-                            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                                <button
-                                    onClick={() => downloadICS(schedule, selectedUpcomingDate)}
-                                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-white bg-indigo-100 hover:bg-indigo-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
-                                >
-                                    <CalendarPlus className="w-4 h-4" />
-                                    Sinkronkan
-                                </button>
-                                <button
-                                    onClick={() => googleTasksLogin()}
-                                    disabled={isExporting}
-                                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-white bg-blue-100 hover:bg-blue-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm disabled:opacity-50"
-                                >
-                                    <ListTodo className="w-4 h-4" />
-                                    {isExporting ? 'Mengekspor...' : 'Ekspor ke Google Tasks'}
-                                </button>
-                                <button
-                                    onClick={() => setIsAddingTaskForDate(selectedUpcomingDate)}
-                                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
-                                >
-                                    <CalendarPlus className="w-4 h-4" />
-                                    Tambah Aktivitas
-                                </button>
+                            <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                                <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
+                                    <button
+                                        onClick={() => downloadICS(schedule, selectedUpcomingDate)}
+                                        className="flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-white bg-indigo-100 hover:bg-indigo-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
+                                    >
+                                        <CalendarPlus className="w-4 h-4" />
+                                        Sinkronkan
+                                    </button>
+                                    <button
+                                        onClick={() => googleTasksLogin()}
+                                        disabled={isExporting}
+                                        className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-white bg-blue-100 hover:bg-blue-600 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm disabled:opacity-50"
+                                    >
+                                        <ListTodo className="w-4 h-4" />
+                                        {isExporting ? 'Mengekspor...' : 'Ekspor ke Google Tasks'}
+                                    </button>
+                                    <button
+                                        onClick={() => setIsAddingTaskForDate(selectedUpcomingDate)}
+                                        className="flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 py-2 px-4 rounded-full transition-all w-full sm:w-auto shadow-sm"
+                                    >
+                                        <CalendarPlus className="w-4 h-4" />
+                                        Tambah Aktivitas
+                                    </button>
+                                </div>
+                                <div className="flex w-full sm:w-auto justify-end">
+                                    <button
+                                        onClick={async () => {
+                                          if (window.confirm('Yakin ingin menghapus semua task pada tanggal ini?')) {
+                                            await deleteAllScheduleItems(selectedUpcomingDate);
+                                            showNotification('Semua task berhasil dihapus');
+                                          }
+                                        }}
+                                        className="flex items-center justify-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 py-1.5 px-3 rounded-full transition-colors w-full sm:w-fit border border-red-200"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Hapus Semua Task
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         
