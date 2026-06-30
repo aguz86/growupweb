@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { auth, googleProvider } from "../lib/firebase";
-import { signInWithPopup, signOut, User } from "firebase/auth";
+import { auth, googleSignIn } from "../lib/firebase";
+import { signOut, User } from "firebase/auth";
 import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
 export function AuthMenu() {
@@ -19,7 +19,7 @@ export function AuthMenu() {
     setAuthError(null);
     try {
       console.log("Starting sign in with popup...");
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await googleSignIn();
       console.log("Sign in successful:", result.user.email);
       setUser(result.user);
     } catch (e: any) {
