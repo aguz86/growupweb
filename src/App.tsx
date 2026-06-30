@@ -70,7 +70,7 @@ export default function App() {
       setIsExporting(true);
       showNotification('Mengekspor jadwal ke Google Tasks...');
       try {
-        const scheduleToExport = activeTab === 'today' ? todaySchedule : getResolvedSchedule(selectedUpcomingDate);
+        const scheduleToExport = activeTab === 'today' ? todaySchedule : getResolvedSchedule(new Date(selectedUpcomingDate));
         const dateToExport = activeTab === 'today' ? currentDateStr : selectedUpcomingDate;
         
         const { successCount, errorCount } = await exportToGoogleTasks(tokenResponse.access_token, scheduleToExport, dateToExport);
