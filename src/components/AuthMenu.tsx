@@ -65,8 +65,9 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
 
   const importAllTasks = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      e.target.value = '';
       if (!file) return;
+      if (onNotification) onNotification('Mengimpor task...');
+      
       const reader = new FileReader();
       reader.onload = async (event) => {
           try {
@@ -81,7 +82,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i);
                   if (key && (key.startsWith(customPrefix) || key === globalPrefix || key.startsWith(productivityPrefix))) {
-                      if (!user && key.startsWith('custom_schedule_') && key.split('_').length > 2) continue;
+                      if (!user && key.startsWith('custom_schedule_') && key.split('_').length > 3) continue;
                       if (!user && key.startsWith('productivity_') && key.split('_').length > 2) continue;
                       keysToRemove.push(key);
                   }
@@ -142,7 +143,6 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               if (onNotification) {
                   onNotification('Data task berhasil diimpor! Memuat ulang...');
               }
-              alert('Data task berhasil diimpor! Memuat ulang...');
               setTimeout(() => {
                   window.location.reload();
               }, 1500);
@@ -151,7 +151,8 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               if (onNotification) {
                   onNotification('Gagal mengimpor file. Pastikan file backup valid.');
               }
-              alert('Gagal mengimpor file. Pastikan file backup valid.');
+          } finally {
+              e.target.value = '';
           }
       };
       reader.readAsText(file);
@@ -176,8 +177,8 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
 
   const importAllNotes = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      e.target.value = '';
       if (!file) return;
+      if (onNotification) onNotification('Mengimpor note...');
       const reader = new FileReader();
       reader.onload = async (event) => {
           try {
@@ -206,7 +207,6 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               if (onNotification) {
                   onNotification('Data note berhasil diimpor! Memuat ulang...');
               }
-              alert('Data note berhasil diimpor! Memuat ulang...');
               setTimeout(() => {
                   window.location.reload();
               }, 1500);
@@ -215,7 +215,8 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               if (onNotification) {
                   onNotification('Gagal mengimpor file. Pastikan file backup valid.');
               }
-              alert('Gagal mengimpor file. Pastikan file backup valid.');
+          } finally {
+              e.target.value = '';
           }
       };
       reader.readAsText(file);
@@ -237,7 +238,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
             </button>
             <label className="text-xs text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-full transition-colors shadow-sm font-medium cursor-pointer">
                 Impor Task
-                <input type="file" accept=".json" className="hidden" onChange={importAllTasks} />
+                <input type="file" accept=".json" className="hidden" onClick={(e) => { e.currentTarget.value = ''; }} onChange={importAllTasks} />
             </label>
         </div>
         <div className="flex items-center gap-2 mt-1">
@@ -246,7 +247,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
             </button>
             <label className="text-xs text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-full transition-colors shadow-sm font-medium cursor-pointer">
                 Impor Note
-                <input type="file" accept=".json" className="hidden" onChange={importAllNotes} />
+                <input type="file" accept=".json" className="hidden" onClick={(e) => { e.currentTarget.value = ''; }} onChange={importAllNotes} />
             </label>
         </div>
       </div>

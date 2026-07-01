@@ -332,7 +332,6 @@ export function useSchedule() {
   }, [currentDateStr, user]);
 
   const getResolvedSchedule = (date: Date) => {
-      if (!user) return [];
       const dStr = format(date, 'yyyy-MM-dd');
       let base = getScheduleForDate(date);
       const dayOfWeek = date.getDay();
