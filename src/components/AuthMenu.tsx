@@ -82,18 +82,46 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
               const data = JSON.parse(fileContent);
               if (typeof data !== 'object' || data === null) throw new Error("Format invalid");
               
-              let isRawArray = Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && 'start' in data[0];
-              
               let validDataToImport: Record<string, any> = {};
               
-              if (isRawArray) {
+              if (Array.isArray(data)) {
                   const itemsObj: any = {};
-                  data.forEach((item: any) => {
-                      if (item && item.start) {
-                          itemsObj[item.start] = item;
+                  let currentStartHour = 8;
+                  let currentStartMin = 0;
+
+                  const formatTime = (h: number, m: number) => 
+                      `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+                  data.forEach((item: any, index: number) => {
+                      if (typeof item === 'object' && item !== null) {
+                          const title = item.title || item.name || item.task || `Task ${index + 1}`;
+                          const duration = parseInt(item.durationMinutes || item.duration) || 60;
+                          
+                          let start = item.start;
+                          if (!start) {
+                              start = formatTime(currentStartHour, currentStartMin);
+                              currentStartMin += duration;
+                              while (currentStartMin >= 60) {
+                                  currentStartMin -= 60;
+                                  currentStartHour++;
+                              }
+                          }
+                          
+                          itemsObj[start] = {
+                              id: item.id || `imported_${Math.random().toString(36).substr(2, 9)}`,
+                              title: title,
+                              start: start,
+                              durationMinutes: duration,
+                              description: item.description || item.desc || '',
+                              activityName: item.activityName || item.category || 'Lainnya',
+                              isDeleted: false,
+                              excludedDays: item.excludedDays || []
+                          };
                       }
                   });
-                  validDataToImport['globalOverrides'] = itemsObj;
+                  if (Object.keys(itemsObj).length > 0) {
+                      validDataToImport['globalOverrides'] = itemsObj;
+                  }
               } else {
                   for (const key in data) {
                       if (key.includes('globalOverrides') || key.includes('custom_schedule_') || key.includes('productivity_')) {
@@ -103,7 +131,7 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
               }
 
               if (Object.keys(validDataToImport).length === 0) {
-                  if (onNotification) onNotification('Tidak ada task valid yang ditemukan dalam file ini.');
+                  if (onNotification) onNotification('Tidak ada data task yang dikenali. Pastikan JSON berisi array task atau objek backup yang valid.');
                   e.target.value = '';
                   return;
               }
