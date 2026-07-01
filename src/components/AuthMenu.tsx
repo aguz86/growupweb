@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, googleSignIn, db } from "../lib/firebase";
 import { signOut, User } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
 import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
 export interface AuthMenuProps {
@@ -65,6 +65,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
 
   const importAllTasks = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
+      e.target.value = '';
       if (!file) return;
       const reader = new FileReader();
       reader.onload = async (event) => {
@@ -80,50 +81,64 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               for (let i = 0; i < localStorage.length; i++) {
                   const key = localStorage.key(i);
                   if (key && (key.startsWith(customPrefix) || key === globalPrefix || key.startsWith(productivityPrefix))) {
-                      // Only remove if it's an exact match for anonymous prefix (prevent removing user prefix when logged out, actually we want to clear the current scope)
-                      if (!user && key.startsWith('custom_schedule_') && key.split('_').length > 2) {
-                          // it's a user prefix like custom_schedule_UID_DATE, skip it
-                          continue;
-                      }
-                      if (!user && key.startsWith('productivity_') && key.split('_').length > 2) {
-                          continue;
-                      }
+                      if (!user && key.startsWith('custom_schedule_') && key.split('_').length > 2) continue;
+                      if (!user && key.startsWith('productivity_') && key.split('_').length > 2) continue;
                       keysToRemove.push(key);
                   }
               }
               keysToRemove.forEach(k => localStorage.removeItem(k));
 
+              if (user) {
+                  try {
+                      const schedulesSnap = await getDocs(collection(db, 'users', user.uid, 'schedules'));
+                      await Promise.all(schedulesSnap.docs.map(d => deleteDoc(d.ref)));
+                      const progressSnap = await getDocs(collection(db, 'users', user.uid, 'progress'));
+                      await Promise.all(progressSnap.docs.map(d => deleteDoc(d.ref)));
+                      await deleteDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'));
+                  } catch (e) {
+                      console.error("Failed to clear Firebase docs:", e);
+                  }
+              }
+
+              const promises = [];
               for (const key in data) {
                   let dateMatch = key.match(/\d{4}-\d{2}-\d{2}$/);
                   
+                  let parsedValue;
+                  try {
+                      parsedValue = typeof data[key] === 'string' ? JSON.parse(data[key]) : data[key];
+                  } catch (e) {
+                      continue; // Skip invalid JSON
+                  }
+
+                  const stringValue = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
+
                   if (key.includes('globalOverrides')) {
                       const newKey = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
-                      localStorage.setItem(newKey, data[key]);
+                      localStorage.setItem(newKey, stringValue);
                       if (user) {
-                          try {
-                              await setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: JSON.parse(data[key]) }, { merge: true });
-                          } catch (e) { console.error(e); }
+                          promises.push(setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: parsedValue }));
                       }
                   } else if (key.includes('custom_schedule_') && dateMatch) {
                       const dateStr = dateMatch[0];
                       const newKey = user ? `custom_schedule_${user.uid}_${dateStr}` : `custom_schedule_${dateStr}`;
-                      localStorage.setItem(newKey, data[key]);
+                      localStorage.setItem(newKey, stringValue);
                       if (user) {
-                          try {
-                              await setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: JSON.parse(data[key]) });
-                          } catch (e) { console.error(e); }
+                          promises.push(setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: parsedValue }));
                       }
                   } else if (key.includes('productivity_') && dateMatch) {
                       const dateStr = dateMatch[0];
                       const newKey = user ? `productivity_${user.uid}_${dateStr}` : `productivity_${dateStr}`;
-                      localStorage.setItem(newKey, data[key]);
+                      localStorage.setItem(newKey, stringValue);
                       if (user) {
-                          try {
-                              await setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: JSON.parse(data[key]) }, { merge: true });
-                          } catch (e) { console.error(e); }
+                          promises.push(setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: parsedValue }, { merge: true }));
                       }
                   }
               }
+              if (promises.length > 0) {
+                  await Promise.all(promises).catch(e => console.error("Firebase bulk save error:", e));
+              }
+
               if (onNotification) {
                   onNotification('Data task berhasil diimpor! Memuat ulang...');
               }
@@ -132,14 +147,12 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
                   window.location.reload();
               }, 1500);
           } catch(err) {
+              console.error("Import tasks error:", err);
               if (onNotification) {
                   onNotification('Gagal mengimpor file. Pastikan file backup valid.');
-              } else {
-                  alert('Gagal mengimpor file. Pastikan file backup valid.');
               }
+              alert('Gagal mengimpor file. Pastikan file backup valid.');
           }
-          // Reset input file value
-          e.target.value = '';
       };
       reader.readAsText(file);
   };
@@ -163,6 +176,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
 
   const importAllNotes = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
+      e.target.value = '';
       if (!file) return;
       const reader = new FileReader();
       reader.onload = async (event) => {
@@ -170,11 +184,19 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               const data = JSON.parse(event.target?.result as string);
               for (const key in data) {
                   if (key.startsWith('motivational_notes_')) {
+                      let parsedValue;
+                      try {
+                          parsedValue = typeof data[key] === 'string' ? JSON.parse(data[key]) : data[key];
+                      } catch (e) {
+                          continue;
+                      }
+                      const stringValue = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
+
                       const newKey = user ? `motivational_notes_${user.uid}` : 'motivational_notes_';
-                      localStorage.setItem(newKey, data[key]);
+                      localStorage.setItem(newKey, stringValue);
                       if (user) {
                           try {
-                              await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: JSON.parse(data[key]) }, { merge: true });
+                              await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: parsedValue }, { merge: true });
                           } catch (e) {
                               console.error(e);
                           }
@@ -189,13 +211,12 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
                   window.location.reload();
               }, 1500);
           } catch(err) {
+              console.error("Import notes error:", err);
               if (onNotification) {
                   onNotification('Gagal mengimpor file. Pastikan file backup valid.');
-              } else {
-                  alert('Gagal mengimpor file. Pastikan file backup valid.');
               }
+              alert('Gagal mengimpor file. Pastikan file backup valid.');
           }
-          e.target.value = '';
       };
       reader.readAsText(file);
   };
