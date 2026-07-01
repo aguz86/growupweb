@@ -66,12 +66,15 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
   const importAllTasks = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      if (onNotification) onNotification('Mengimpor task...');
+      if (onNotification) onNotification('Memulai impor task...');
       
       const reader = new FileReader();
       reader.onload = async (event) => {
           try {
-              const data = JSON.parse(event.target?.result as string);
+              const fileContent = event.target?.result as string;
+              if (!fileContent) throw new Error("File kosong");
+              const data = JSON.parse(fileContent);
+              if (typeof data !== 'object' || data === null) throw new Error("Format invalid");
               
               // clear existing schedules for current user/anonymous to prevent old tasks from staying
               const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
@@ -102,54 +105,65 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               }
 
               const promises = [];
+              let importedCount = 0;
+
               for (const key in data) {
                   let dateMatch = key.match(/\d{4}-\d{2}-\d{2}$/);
                   
                   let parsedValue;
                   try {
-                      parsedValue = typeof data[key] === 'string' ? JSON.parse(data[key]) : data[key];
+                      if (typeof data[key] === 'string') {
+                          if (data[key].trim() === '') {
+                              parsedValue = key.includes('custom_schedule_') ? [] : {};
+                          } else {
+                              parsedValue = JSON.parse(data[key]);
+                          }
+                      } else {
+                          parsedValue = data[key];
+                      }
                   } catch (e) {
+                      console.warn("Invalid JSON for key", key, data[key]);
                       continue; // Skip invalid JSON
                   }
 
-                  const stringValue = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
+                  const stringValue = typeof parsedValue === 'object' ? JSON.stringify(parsedValue) : String(parsedValue);
 
                   if (key.includes('globalOverrides')) {
                       const newKey = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
                       localStorage.setItem(newKey, stringValue);
-                      if (user) {
-                          promises.push(setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: parsedValue }));
-                      }
+                      if (user) promises.push(setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: parsedValue }));
+                      importedCount++;
                   } else if (key.includes('custom_schedule_') && dateMatch) {
                       const dateStr = dateMatch[0];
                       const newKey = user ? `custom_schedule_${user.uid}_${dateStr}` : `custom_schedule_${dateStr}`;
                       localStorage.setItem(newKey, stringValue);
-                      if (user) {
-                          promises.push(setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: parsedValue }));
-                      }
+                      if (user) promises.push(setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: parsedValue }));
+                      importedCount++;
                   } else if (key.includes('productivity_') && dateMatch) {
                       const dateStr = dateMatch[0];
                       const newKey = user ? `productivity_${user.uid}_${dateStr}` : `productivity_${dateStr}`;
                       localStorage.setItem(newKey, stringValue);
-                      if (user) {
-                          promises.push(setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: parsedValue }, { merge: true }));
-                      }
+                      if (user) promises.push(setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: parsedValue }, { merge: true }));
+                      importedCount++;
                   }
               }
+              
               if (promises.length > 0) {
                   await Promise.all(promises).catch(e => console.error("Firebase bulk save error:", e));
               }
 
-              if (onNotification) {
-                  onNotification('Data task berhasil diimpor! Memuat ulang...');
+              if (importedCount === 0) {
+                  if (onNotification) onNotification('Tidak ada task valid yang ditemukan dalam file ini.');
+              } else {
+                  if (onNotification) onNotification(`Berhasil mengimpor ${importedCount} data task! Memuat ulang...`);
+                  setTimeout(() => {
+                      window.location.reload();
+                  }, 1500);
               }
-              setTimeout(() => {
-                  window.location.reload();
-              }, 1500);
           } catch(err) {
               console.error("Import tasks error:", err);
               if (onNotification) {
-                  onNotification('Gagal mengimpor file. Pastikan file backup valid.');
+                  onNotification('Gagal mengimpor file. Pastikan file backup valid (JSON).');
               }
           } finally {
               e.target.value = '';
@@ -178,42 +192,63 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
   const importAllNotes = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      if (onNotification) onNotification('Mengimpor note...');
+      if (onNotification) onNotification('Memulai impor note...');
+      
       const reader = new FileReader();
       reader.onload = async (event) => {
           try {
-              const data = JSON.parse(event.target?.result as string);
+              const fileContent = event.target?.result as string;
+              if (!fileContent) throw new Error("File kosong");
+              const data = JSON.parse(fileContent);
+              if (typeof data !== 'object' || data === null) throw new Error("Format invalid");
+              
+              let importedCount = 0;
+              const promises = [];
+
               for (const key in data) {
                   if (key.startsWith('motivational_notes_')) {
                       let parsedValue;
                       try {
-                          parsedValue = typeof data[key] === 'string' ? JSON.parse(data[key]) : data[key];
+                          if (typeof data[key] === 'string') {
+                              if (data[key].trim() === '') {
+                                  parsedValue = [];
+                              } else {
+                                  parsedValue = JSON.parse(data[key]);
+                              }
+                          } else {
+                              parsedValue = data[key];
+                          }
                       } catch (e) {
+                          console.warn("Invalid JSON for note key", key);
                           continue;
                       }
-                      const stringValue = typeof data[key] === 'string' ? data[key] : JSON.stringify(data[key]);
-
+                      
+                      const stringValue = typeof parsedValue === 'object' ? JSON.stringify(parsedValue) : String(parsedValue);
                       const newKey = user ? `motivational_notes_${user.uid}` : 'motivational_notes_';
                       localStorage.setItem(newKey, stringValue);
                       if (user) {
-                          try {
-                              await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: parsedValue }, { merge: true });
-                          } catch (e) {
-                              console.error(e);
-                          }
+                          promises.push(setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: parsedValue }, { merge: true }));
                       }
+                      importedCount++;
                   }
               }
-              if (onNotification) {
-                  onNotification('Data note berhasil diimpor! Memuat ulang...');
+
+              if (promises.length > 0) {
+                  await Promise.all(promises).catch(e => console.error("Firebase bulk save error:", e));
               }
-              setTimeout(() => {
-                  window.location.reload();
-              }, 1500);
+
+              if (importedCount === 0) {
+                  if (onNotification) onNotification('Tidak ada note valid yang ditemukan dalam file ini.');
+              } else {
+                  if (onNotification) onNotification(`Berhasil mengimpor ${importedCount} data note! Memuat ulang...`);
+                  setTimeout(() => {
+                      window.location.reload();
+                  }, 1500);
+              }
           } catch(err) {
               console.error("Import notes error:", err);
               if (onNotification) {
-                  onNotification('Gagal mengimpor file. Pastikan file backup valid.');
+                  onNotification('Gagal mengimpor file. Pastikan file backup valid (JSON).');
               }
           } finally {
               e.target.value = '';
