@@ -47,11 +47,16 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
   };
 
   const exportAllTasks = () => {
-    const exportData: Record<string, string> = {};
+    const exportData: Record<string, any> = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && (key.startsWith('productivity_') || key.startsWith('custom_schedule_') || key.startsWith('globalOverrides'))) {
-            exportData[key] = localStorage.getItem(key) || '';
+            try {
+                const val = localStorage.getItem(key);
+                exportData[key] = val ? JSON.parse(val) : null;
+            } catch (e) {
+                exportData[key] = localStorage.getItem(key);
+            }
         }
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -75,6 +80,32 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               if (!fileContent) throw new Error("File kosong");
               const data = JSON.parse(fileContent);
               if (typeof data !== 'object' || data === null) throw new Error("Format invalid");
+              
+              let isRawArray = Array.isArray(data) && data.length > 0 && typeof data[0] === 'object' && 'start' in data[0];
+              
+              let validDataToImport: Record<string, any> = {};
+              
+              if (isRawArray) {
+                  const itemsObj: any = {};
+                  data.forEach((item: any) => {
+                      if (item && item.start) {
+                          itemsObj[item.start] = item;
+                      }
+                  });
+                  validDataToImport['globalOverrides'] = itemsObj;
+              } else {
+                  for (const key in data) {
+                      if (key.includes('globalOverrides') || key.includes('custom_schedule_') || key.includes('productivity_')) {
+                          validDataToImport[key] = data[key];
+                      }
+                  }
+              }
+
+              if (Object.keys(validDataToImport).length === 0) {
+                  if (onNotification) onNotification('Tidak ada task valid yang ditemukan dalam file ini.');
+                  e.target.value = '';
+                  return;
+              }
               
               // clear existing schedules for current user/anonymous to prevent old tasks from staying
               const customPrefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
@@ -107,22 +138,22 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               const promises = [];
               let importedCount = 0;
 
-              for (const key in data) {
+              for (const key in validDataToImport) {
                   let dateMatch = key.match(/\d{4}-\d{2}-\d{2}$/);
                   
                   let parsedValue;
                   try {
-                      if (typeof data[key] === 'string') {
-                          if (data[key].trim() === '') {
+                      if (typeof validDataToImport[key] === 'string') {
+                          if (validDataToImport[key].trim() === '') {
                               parsedValue = key.includes('custom_schedule_') ? [] : {};
                           } else {
-                              parsedValue = JSON.parse(data[key]);
+                              parsedValue = JSON.parse(validDataToImport[key]);
                           }
                       } else {
-                          parsedValue = data[key];
+                          parsedValue = validDataToImport[key];
                       }
                   } catch (e) {
-                      console.warn("Invalid JSON for key", key, data[key]);
+                      console.warn("Invalid JSON for key", key, validDataToImport[key]);
                       continue; // Skip invalid JSON
                   }
 
@@ -153,7 +184,7 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               }
 
               if (importedCount === 0) {
-                  if (onNotification) onNotification('Tidak ada task valid yang ditemukan dalam file ini.');
+                  if (onNotification) onNotification('Gagal memproses data task yang valid.');
               } else {
                   if (onNotification) onNotification(`Berhasil mengimpor ${importedCount} data task! Memuat ulang...`);
                   setTimeout(() => {
@@ -173,11 +204,16 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
   };
 
   const exportAllNotes = () => {
-    const exportData: Record<string, string> = {};
+    const exportData: Record<string, any> = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith('motivational_notes_')) {
-            exportData[key] = localStorage.getItem(key) || '';
+            try {
+                const val = localStorage.getItem(key);
+                exportData[key] = val ? JSON.parse(val) : null;
+            } catch (e) {
+                exportData[key] = localStorage.getItem(key);
+            }
         }
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -202,21 +238,42 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               const data = JSON.parse(fileContent);
               if (typeof data !== 'object' || data === null) throw new Error("Format invalid");
               
+              let isRawArray = Array.isArray(data);
+              
+              let validDataToImport: Record<string, any> = {};
+              
+              if (isRawArray) {
+                  // User uploaded a raw array of notes, let's map it to motivational_notes_
+                  validDataToImport['motivational_notes_'] = data;
+              } else {
+                  for (const key in data) {
+                      if (key.startsWith('motivational_notes_')) {
+                          validDataToImport[key] = data[key];
+                      }
+                  }
+              }
+
+              if (Object.keys(validDataToImport).length === 0) {
+                  if (onNotification) onNotification('Tidak ada note valid yang ditemukan dalam file ini.');
+                  e.target.value = '';
+                  return;
+              }
+              
               let importedCount = 0;
               const promises = [];
 
-              for (const key in data) {
+              for (const key in validDataToImport) {
                   if (key.startsWith('motivational_notes_')) {
                       let parsedValue;
                       try {
-                          if (typeof data[key] === 'string') {
-                              if (data[key].trim() === '') {
+                          if (typeof validDataToImport[key] === 'string') {
+                              if (validDataToImport[key].trim() === '') {
                                   parsedValue = [];
                               } else {
-                                  parsedValue = JSON.parse(data[key]);
+                                  parsedValue = JSON.parse(validDataToImport[key]);
                               }
                           } else {
-                              parsedValue = data[key];
+                              parsedValue = validDataToImport[key];
                           }
                       } catch (e) {
                           console.warn("Invalid JSON for note key", key);
