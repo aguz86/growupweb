@@ -278,8 +278,7 @@ export function useSchedule() {
   const [customSchedules, setCustomSchedules] = useState<Record<string, ScheduleItem[]>>({});
   const [globalOverrides, setGlobalOverrides] = useState<Record<string, ScheduleItem>>({});
 
-  // Fetch local schedules
-  useEffect(() => {
+  const reloadLocalData = () => {
     const loadedSchedules: Record<string, ScheduleItem[]> = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -297,6 +296,23 @@ export function useSchedule() {
         const localOverrides = JSON.parse(localStorage.getItem(user ? `globalOverrides_${user.uid}` : 'globalOverrides') || '{}');
         setGlobalOverrides(localOverrides);
     } catch(e) {}
+
+    const progKey = user ? `productivity_${user.uid}_${currentDateStr}` : `productivity_${currentDateStr}`;
+    const todayProgressStr = localStorage.getItem(progKey);
+    if (todayProgressStr) {
+      try {
+        setProgress(JSON.parse(todayProgressStr));
+      } catch (e) {
+        setProgress({});
+      }
+    } else {
+      setProgress({});
+    }
+  };
+
+  // Fetch local schedules
+  useEffect(() => {
+    reloadLocalData();
   }, [user]);
 
   // Fetch Firebase schedules when user logs in
@@ -707,11 +723,12 @@ export function useSchedule() {
         });
     });
 
-    const TOTAL_WEEK_MINUTES = 7 * 24 * 60; // 10080
-    const unallocatedMinutes = Math.max(0, TOTAL_WEEK_MINUTES - totalScheduledMinutes);
-    if (unallocatedMinutes > 0) {
-        activityMap['Waktu Kosong (Tak Terjadwal)'] = unallocatedMinutes;
-    }
+    // Waktu Kosong is removed so the chart dynamically reflects only scheduled tasks
+    // const TOTAL_WEEK_MINUTES = 7 * 24 * 60; // 10080
+    // const unallocatedMinutes = Math.max(0, TOTAL_WEEK_MINUTES - totalScheduledMinutes);
+    // if (unallocatedMinutes > 0) {
+    //     activityMap['Waktu Kosong (Tak Terjadwal)'] = unallocatedMinutes;
+    // }
 
     const colors = [
       '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', 
@@ -771,6 +788,7 @@ export function useSchedule() {
     deleteAllScheduleItems,
     addScheduleItem,
     loadScheduleForDate,
-    user
+    user,
+    reloadLocalData
   };
 }

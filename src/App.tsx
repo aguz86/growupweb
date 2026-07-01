@@ -52,6 +52,7 @@ export default function App() {
     deleteScheduleItem,
     deleteAllScheduleItems,
     addScheduleItem,
+    reloadLocalData,
     user
   } = useSchedule();
 
@@ -237,7 +238,7 @@ export default function App() {
             </button>
           </div>
           
-          <AuthMenu onNotification={showNotification} />
+          <AuthMenu onNotification={showNotification} onImportSuccess={reloadLocalData} />
         </div>
         
         <MotivationalNote onNotification={showNotification} />

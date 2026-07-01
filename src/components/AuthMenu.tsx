@@ -6,9 +6,10 @@ import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
 export interface AuthMenuProps {
   onNotification?: (message: string) => void;
+  onImportSuccess?: () => void;
 }
 
-export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
+export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}) {
   const [user, setUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -186,10 +187,14 @@ export function AuthMenu({ onNotification }: AuthMenuProps = {}) {
               if (importedCount === 0) {
                   if (onNotification) onNotification('Gagal memproses data task yang valid.');
               } else {
-                  if (onNotification) onNotification(`Berhasil mengimpor ${importedCount} data task! Memuat ulang...`);
-                  setTimeout(() => {
-                      window.location.reload();
-                  }, 1500);
+                  if (onNotification) onNotification(`Berhasil mengimpor ${importedCount} data task!`);
+                  if (onImportSuccess) {
+                      onImportSuccess();
+                  } else {
+                      setTimeout(() => {
+                          window.location.reload();
+                      }, 1500);
+                  }
               }
           } catch(err) {
               console.error("Import tasks error:", err);
