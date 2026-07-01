@@ -94,8 +94,8 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
 
                   data.forEach((item: any, index: number) => {
                       if (typeof item === 'object' && item !== null) {
-                          const title = item.title || item.name || item.task || `Task ${index + 1}`;
-                          const duration = parseInt(item.durationMinutes || item.duration) || 60;
+                          const activity = item.activity || item.activityName || item.category || item.title || item.name || item.task || `Task ${index + 1}`;
+                          const duration = parseInt(item.duration || item.durationMinutes) || 60;
                           
                           let start = item.start;
                           if (!start) {
@@ -106,14 +106,22 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
                                   currentStartHour++;
                               }
                           }
+
+                          // Calculate end time
+                          const [sH, sM] = start.split(':').map(Number);
+                          let eM = sM + duration;
+                          let eH = sH + Math.floor(eM / 60);
+                          eM = eM % 60;
+                          const end = formatTime(eH, eM);
                           
                           itemsObj[start] = {
                               id: item.id || `imported_${Math.random().toString(36).substr(2, 9)}`,
-                              title: title,
                               start: start,
-                              durationMinutes: duration,
-                              description: item.description || item.desc || '',
-                              activityName: item.activityName || item.category || 'Lainnya',
+                              end: end,
+                              duration: duration,
+                              activity: activity,
+                              notes: item.notes || item.description || item.desc || '',
+                              isBreak: !!item.isBreak,
                               isDeleted: false,
                               excludedDays: item.excludedDays || []
                           };
@@ -192,19 +200,20 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
                       const newKey = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
                       localStorage.setItem(newKey, stringValue);
                       if (user) promises.push(setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: parsedValue }));
-                      importedCount++;
+                      importedCount += Object.keys(parsedValue).length || 1;
                   } else if (key.includes('custom_schedule_') && dateMatch) {
                       const dateStr = dateMatch[0];
                       const newKey = user ? `custom_schedule_${user.uid}_${dateStr}` : `custom_schedule_${dateStr}`;
                       localStorage.setItem(newKey, stringValue);
                       if (user) promises.push(setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule: parsedValue }));
-                      importedCount++;
+                      importedCount += Array.isArray(parsedValue) ? parsedValue.length : 1;
                   } else if (key.includes('productivity_') && dateMatch) {
                       const dateStr = dateMatch[0];
                       const newKey = user ? `productivity_${user.uid}_${dateStr}` : `productivity_${dateStr}`;
                       localStorage.setItem(newKey, stringValue);
                       if (user) promises.push(setDoc(doc(db, 'users', user.uid, 'progress', dateStr), { progress: parsedValue }, { merge: true }));
-                      importedCount++;
+                      // Don't count productivity to task count, but increment by 1 so it doesn't say 0 if only productivity imported
+                      if (importedCount === 0) importedCount = 1;
                   }
               }
               
