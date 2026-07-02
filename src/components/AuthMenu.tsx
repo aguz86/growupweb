@@ -84,7 +84,30 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
               
               let validDataToImport: Record<string, any> = {};
               
+              let dataArray = null;
               if (Array.isArray(data)) {
+                  dataArray = data;
+              } else if (typeof data === 'object' && data !== null) {
+                  // Check if it's a backup file
+                  const hasBackupKeys = Object.keys(data).some(k => k.includes('globalOverrides') || k.includes('custom_schedule_') || k.includes('productivity_'));
+                  if (hasBackupKeys) {
+                      for (const key in data) {
+                          if (key.includes('globalOverrides') || key.includes('custom_schedule_') || key.includes('productivity_')) {
+                              validDataToImport[key] = data[key];
+                          }
+                      }
+                  } else {
+                      // Try to find an array inside the object
+                      for (const key in data) {
+                          if (Array.isArray(data[key]) && data[key].length > 0) {
+                              dataArray = data[key];
+                              break;
+                          }
+                      }
+                  }
+              }
+
+              if (dataArray) {
                   const itemsObj: any = {};
                   let currentStartHour = 8;
                   let currentStartMin = 0;
@@ -92,7 +115,7 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
                   const formatTime = (h: number, m: number) => 
                       `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
-                  data.forEach((item: any, index: number) => {
+                  dataArray.forEach((item: any, index: number) => {
                       if (typeof item === 'object' && item !== null) {
                           const activity = item.activity || item.activityName || item.category || item.title || item.name || item.task || `Task ${index + 1}`;
                           const duration = parseInt(item.duration || item.durationMinutes) || 60;
@@ -129,12 +152,6 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
                   });
                   if (Object.keys(itemsObj).length > 0) {
                       validDataToImport['globalOverrides'] = itemsObj;
-                  }
-              } else {
-                  for (const key in data) {
-                      if (key.includes('globalOverrides') || key.includes('custom_schedule_') || key.includes('productivity_')) {
-                          validDataToImport[key] = data[key];
-                      }
                   }
               }
 
