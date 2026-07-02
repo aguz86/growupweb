@@ -84,75 +84,90 @@ export function AuthMenu({ onNotification, onImportSuccess }: AuthMenuProps = {}
               
               let validDataToImport: Record<string, any> = {};
               
-              let dataArray = null;
-              if (Array.isArray(data)) {
-                  dataArray = data;
-              } else if (typeof data === 'object' && data !== null) {
-                  // Check if it's a backup file
-                  const hasBackupKeys = Object.keys(data).some(k => k.includes('globalOverrides') || k.includes('custom_schedule_') || k.includes('productivity_'));
-                  if (hasBackupKeys) {
-                      for (const key in data) {
-                          if (key.includes('globalOverrides') || key.includes('custom_schedule_') || key.includes('productivity_')) {
-                              validDataToImport[key] = data[key];
-                          }
-                      }
-                  } else {
-                      // Try to find an array inside the object
-                      for (const key in data) {
-                          if (Array.isArray(data[key]) && data[key].length > 0) {
-                              dataArray = data[key];
-                              break;
-                          }
+              const formatTime = (h: number, m: number) => 
+                  `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                  
+              let currentStartHour = 8;
+              let currentStartMin = 0;
+              
+              const itemsObj: any = {};
+              
+              const processTask = (item: any) => {
+                  if (typeof item !== 'object' || item === null) return;
+                  if (!item.activity && !item.activityName && !item.title && !item.name && !item.task) return;
+                  
+                  const activity = item.activity || item.activityName || item.category || item.title || item.name || item.task || `Task`;
+                  const duration = parseInt(item.duration || item.durationMinutes) || 60;
+                  
+                  let start = item.start;
+                  if (!start || !/^\d{2}:\d{2}$/.test(start)) {
+                      start = formatTime(currentStartHour, currentStartMin);
+                      currentStartMin += duration;
+                      while (currentStartMin >= 60) {
+                          currentStartMin -= 60;
+                          currentStartHour++;
                       }
                   }
-              }
 
-              if (dataArray) {
-                  const itemsObj: any = {};
-                  let currentStartHour = 8;
-                  let currentStartMin = 0;
+                  const [sH, sM] = start.split(':').map(Number);
+                  let eM = sM + duration;
+                  let eH = sH + Math.floor(eM / 60);
+                  eM = eM % 60;
+                  const end = formatTime(eH, eM);
+                  
+                  itemsObj[start] = {
+                      id: item.id || `imported_${Math.random().toString(36).substr(2, 9)}`,
+                      start: start,
+                      end: end,
+                      duration: duration,
+                      activity: activity,
+                      notes: item.notes || item.description || item.desc || '',
+                      isBreak: !!item.isBreak,
+                      isDeleted: false,
+                      excludedDays: Array.isArray(item.excludedDays) ? item.excludedDays : []
+                  };
+              };
 
-                  const formatTime = (h: number, m: number) => 
-                      `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-
-                  dataArray.forEach((item: any, index: number) => {
-                      if (typeof item === 'object' && item !== null) {
-                          const activity = item.activity || item.activityName || item.category || item.title || item.name || item.task || `Task ${index + 1}`;
-                          const duration = parseInt(item.duration || item.durationMinutes) || 60;
-                          
-                          let start = item.start;
-                          if (!start) {
-                              start = formatTime(currentStartHour, currentStartMin);
-                              currentStartMin += duration;
-                              while (currentStartMin >= 60) {
-                                  currentStartMin -= 60;
-                                  currentStartHour++;
+              const traverseData = (obj: any) => {
+                  if (Array.isArray(obj)) {
+                      obj.forEach(item => {
+                          if (typeof item === 'object' && item !== null) {
+                              if (item.activity || item.activityName || item.title || item.task) {
+                                  processTask(item);
+                              } else {
+                                  traverseData(item);
                               }
                           }
-
-                          // Calculate end time
-                          const [sH, sM] = start.split(':').map(Number);
-                          let eM = sM + duration;
-                          let eH = sH + Math.floor(eM / 60);
-                          eM = eM % 60;
-                          const end = formatTime(eH, eM);
-                          
-                          itemsObj[start] = {
-                              id: item.id || `imported_${Math.random().toString(36).substr(2, 9)}`,
-                              start: start,
-                              end: end,
-                              duration: duration,
-                              activity: activity,
-                              notes: item.notes || item.description || item.desc || '',
-                              isBreak: !!item.isBreak,
-                              isDeleted: false,
-                              excludedDays: item.excludedDays || []
-                          };
+                      });
+                  } else if (typeof obj === 'object' && obj !== null) {
+                      const values = Object.values(obj);
+                      const isTaskDict = values.length > 0 && values.every((v: any) => typeof v === 'object' && v !== null && (v.activity || v.activityName || v.title || v.task));
+                      
+                      if (isTaskDict) {
+                          for (const key in obj) {
+                              processTask(obj[key]);
+                          }
+                      } else {
+                          for (const key in obj) {
+                              if (key.includes('productivity_')) continue;
+                              
+                              if (typeof obj[key] === 'string') {
+                                  try {
+                                      const parsed = JSON.parse(obj[key]);
+                                      traverseData(parsed);
+                                  } catch (e) {}
+                              } else {
+                                  traverseData(obj[key]);
+                              }
+                          }
                       }
-                  });
-                  if (Object.keys(itemsObj).length > 0) {
-                      validDataToImport['globalOverrides'] = itemsObj;
                   }
+              };
+              
+              traverseData(data);
+              
+              if (Object.keys(itemsObj).length > 0) {
+                  validDataToImport['globalOverrides'] = itemsObj;
               }
 
               if (Object.keys(validDataToImport).length === 0) {
