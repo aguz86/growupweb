@@ -353,10 +353,10 @@ export function useSchedule() {
       const dayOfWeek = date.getDay();
       
       if (Object.keys(globalOverrides).length > 0) {
-          const baseStartTimes = new Set(base.map(item => item.start));
+          const baseIds = new Set(base.map(item => item.id));
           
           base = base.map(item => {
-              const override = globalOverrides[item.start];
+              const override = globalOverrides[item.id] || globalOverrides[item.start];
               if (override) {
                   if (override.excludedDays && override.excludedDays.includes(dayOfWeek)) {
                       return item;
@@ -369,7 +369,7 @@ export function useSchedule() {
           
           Object.values(globalOverrides).forEach((override: any) => {
               if (override.isDeleted) return;
-              if (!baseStartTimes.has(override.start)) {
+              if (!baseIds.has(override.id) && !baseIds.has(override.start)) {
                   if (!(override.excludedDays && override.excludedDays.includes(dayOfWeek))) {
                       base.push({ ...override });
                   }
@@ -404,7 +404,7 @@ export function useSchedule() {
           const baseItem = baseSchedule.find(b => b.id === originalItem.id);
           const baseStartTime = baseItem ? baseItem.start : originalItem.start;
 
-          const newOverrides = { ...globalOverrides, [baseStartTime]: updatedItem };
+          const newOverrides = { ...globalOverrides, [originalItem.id]: updatedItem };
           setGlobalOverrides(newOverrides);
           localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
           

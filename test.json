@@ -1,0 +1,4 @@
+{
+  "custom_schedule_lKTwSSZ4BBR3b7IouDoqiLNF3rH3_2026-07-05": "[{\"start\":\"00:00\",\"end\":\"01:00\",\"duration\":60,\"activity\":\"Jam Santai\",\"notes\":\"Waktu luang.\",\"isBreak\":false,\"id\":\"sun-0\"}]",
+  "globalOverrides_lKTwSSZ4BBR3b7IouDoqiLNF3rH3": "{\"00:00\":{\"activity\":\"Waktunya Tidur\",\"duration\":300,\"end\":\"05:00\",\"excludedDays\":[3,4,1,5,2,0],\"id\":\"sat-0\",\"isBreak\":false,\"notes\":\"Istirahat Malam.\",\"start\":\"00:00\"}}"
+}
