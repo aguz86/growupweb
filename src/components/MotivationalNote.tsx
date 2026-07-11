@@ -1,179 +1,199 @@
-import React, { useState, useEffect } from 'react';
-import { db, auth } from '../lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { Edit2, Check, Plus, Trash2 } from 'lucide-react';
-import { cn } from '../lib/utils';
 
-interface Note {
-    id: string;
-    content: string;
-}
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Plus, X, Quote, Shuffle, GripVertical } from 'lucide-react';
 
 interface MotivationalNoteProps {
-    onNotification?: (msg: string) => void;
+  onNotification?: (msg: string) => void;
 }
 
 export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
-    const [notes, setNotes] = useState<Note[]>([]);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [tempNote, setTempNote] = useState("");
-    const [user, setUser] = useState(auth.currentUser);
+  const [notes, setNotes] = useState<string[]>([
+    "Fokus pada proses, bukan hanya hasil.",
+    "Lakukan sedikit lebih baik hari ini daripada kemarin.",
+    "Konsistensi mengalahkan intensitas."
+  ]);
+  const [currentNoteIndex, setCurrentNoteIndex] = useState(0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [user, setUser] = useState<any | null>(null);
 
-    useEffect(() => {
-        return auth.onAuthStateChanged(setUser);
-    }, []);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
 
-    useEffect(() => {
-        if (!user) {
-            setNotes([]);
-            return;
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
 
-        const localNotes = localStorage.getItem(`motivational_notes_${user.uid}`);
-        if (localNotes) {
-            try {
-                setNotes(JSON.parse(localNotes));
-            } catch (e) {
-                console.error(e);
-            }
-        }
+    return () => subscription.unsubscribe();
+  }, []);
 
-        const unsub = onSnapshot(doc(db, 'users', user.uid, 'settings', 'motivation'), (snap) => {
-            if (snap.exists() && snap.data().notes) {
-                setNotes(snap.data().notes);
-                localStorage.setItem(`motivational_notes_${user.uid}`, JSON.stringify(snap.data().notes));
-            }
-        });
-
-        return () => unsub();
-    }, [user]);
-
-    const saveNotesToDB = async (newNotes: Note[]) => {
-        if (!user) return;
-        localStorage.setItem(`motivational_notes_${user.uid}`, JSON.stringify(newNotes));
+  const loadNotes = async () => {
+    const key = user ? `motivational_notes_${user.id}` : 'motivational_notes_';
+    const local = localStorage.getItem(key);
+    
+    if (user) {
         try {
-            await setDoc(doc(db, 'users', user.uid, 'settings', 'motivation'), { notes: newNotes }, { merge: true });
-        } catch (e) {
-            console.error("Error saving notes", e);
+            const { data, error } = await supabase
+              .from('settings')
+              .select('data')
+              .eq('user_id', user.id)
+              .eq('setting_type', 'motivation')
+              .single();
+              
+            if (!error && data?.data?.notes) {
+                setNotes(data.data.notes);
+                localStorage.setItem(key, JSON.stringify(data.data.notes));
+            } else if (local) {
+                setNotes(JSON.parse(local));
+            }
+        } catch(e) {
+            if (local) setNotes(JSON.parse(local));
         }
+    } else if (local) {
+        setNotes(JSON.parse(local));
     }
+  };
 
-    const handleSaveNote = async () => {
-        if (!editingId || !user) return;
-        const newNotes = notes.map(n => n.id === editingId ? { ...n, content: tempNote } : n);
-        setNotes(newNotes);
-        setEditingId(null);
-        await saveNotesToDB(newNotes);
-        if (onNotification) onNotification("Note tersimpan");
-    };
+  useEffect(() => {
+      loadNotes();
+  }, [user]);
 
-    const handleDeleteNote = async (id: string, e?: React.MouseEvent) => {
-        if (e) e.stopPropagation();
-        if (!user) return;
-        const newNotes = notes.filter(n => n.id !== id);
-        setNotes(newNotes);
-        await saveNotesToDB(newNotes);
-        if (onNotification) onNotification("Note dihapus");
-    };
+  const saveNotes = async (newNotes: string[]) => {
+      setNotes(newNotes);
+      const key = user ? `motivational_notes_${user.id}` : 'motivational_notes_';
+      localStorage.setItem(key, JSON.stringify(newNotes));
+      
+      if (user) {
+          try {
+              await supabase.from('settings').upsert({
+                user_id: user.id,
+                setting_type: 'motivation',
+                data: { notes: newNotes }
+              }, { onConflict: 'user_id, setting_type' });
+          } catch(e) {
+              console.error("Supabase save error", e);
+          }
+      }
+  };
 
-    const handleAddNote = async () => {
-        if (!user) {
-            alert('Harap login terlebih dahulu untuk menambah catatan');
-            return;
-        }
-        if (notes.length >= 4) return;
-        const newNote = { id: Date.now().toString(), content: 'Catatan baru...' };
-        const newNotes = [...notes, newNote];
-        setNotes(newNotes);
-        await saveNotesToDB(newNotes);
-        setEditingId(newNote.id);
-        setTempNote(newNote.content);
-    };
+  const addNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newNote.trim()) {
+      saveNotes([...notes, newNote.trim()]);
+      setNewNote("");
+      setCurrentNoteIndex(notes.length);
+      if (onNotification) onNotification("Note ditambahkan");
+    }
+  };
 
-    return (
-        <div className="mt-6 mb-4 px-4 sm:px-6 max-w-7xl mx-auto w-full animate-in fade-in duration-200">
-            <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-emerald-800">Catatan & Motivasi</h3>
-                {notes.length < 4 && (
-                    <button 
-                        onClick={handleAddNote}
-                        className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-1.5 rounded-md transition-colors"
-                    >
-                        <Plus className="w-3.5 h-3.5" />
-                        Tambah Note
-                    </button>
-                )}
-            </div>
+  const deleteNote = (index: number) => {
+    const next = notes.filter((_, i) => i !== index);
+    saveNotes(next);
+    if (currentNoteIndex >= next.length) {
+      setCurrentNoteIndex(Math.max(0, next.length - 1));
+    }
+    if (onNotification) onNotification("Note dihapus");
+  };
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {notes.map(note => (
-                    <div key={note.id} className="relative group bg-yellow-100 border-2 border-yellow-400 rounded-lg p-4 shadow-sm transition-all hover:shadow-md flex flex-col min-h-[100px]">
-                        {editingId === note.id ? (
-                            <div className="flex flex-col h-full gap-2">
-                                <textarea 
-                                    value={tempNote}
-                                    onChange={(e) => setTempNote(e.target.value)}
-                                    className="flex-1 bg-yellow-50 text-gray-800 placeholder-gray-400 border-2 border-yellow-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 w-full resize-y min-h-[80px]"
-                                    placeholder="Tulis di sini..."
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && e.ctrlKey) {
-                                            handleSaveNote();
-                                        }
-                                    }}
-                                />
-                                <div className="flex gap-2 justify-end">
-                                    <button 
-                                        onClick={() => setEditingId(null)}
-                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-yellow-200 rounded-md transition-colors"
-                                    >
-                                        Batal
-                                    </button>
-                                    <button 
-                                        onClick={handleSaveNote}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-yellow-900 bg-yellow-400 hover:bg-yellow-500 rounded-md transition-colors"
-                                    >
-                                        <Check className="w-3.5 h-3.5" />
-                                        Simpan
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div 
-                                className="flex-1 flex flex-col cursor-pointer"
-                                onClick={() => {
-                                    setTempNote(note.content);
-                                    setEditingId(note.id);
-                                }}
-                            >
-                                <p className="text-gray-800 text-sm font-medium whitespace-pre-wrap leading-relaxed flex-1 pt-1 mb-6">
-                                    {note.content}
-                                </p>
-                                <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-70 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-yellow-100/80 backdrop-blur-sm p-1 rounded-md">
-                                    <button 
-                                        onClick={(e) => handleDeleteNote(note.id, e)}
-                                        className="p-1.5 rounded-full text-red-600 hover:text-red-800 hover:bg-red-100 transition-colors bg-white/50 shadow-sm"
-                                        title="Hapus Note"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setTempNote(note.content);
-                                            setEditingId(note.id);
-                                        }}
-                                        className="p-1.5 rounded-full text-yellow-700 hover:text-yellow-900 hover:bg-yellow-200 transition-colors bg-white/50 shadow-sm"
-                                        title="Edit Note"
-                                    >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+  const randomizeNote = () => {
+    if (notes.length > 1) {
+        let nextIndex;
+        do {
+            nextIndex = Math.floor(Math.random() * notes.length);
+        } while (nextIndex === currentNoteIndex);
+        setCurrentNoteIndex(nextIndex);
+    }
+  };
+
+  if (notes.length === 0 && !isEditing) {
+      return (
+          <div className="w-full max-w-2xl mx-auto mb-6">
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="text-white/70 hover:text-white text-sm flex items-center gap-2 transition-colors mx-auto"
+              >
+                  <Plus className="w-4 h-4" /> Tambah Quote Motivasi
+              </button>
+          </div>
+      );
+  }
+
+  return (
+    <div className="w-full max-w-2xl mx-auto mb-6">
+      <div className="relative group">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 blur-xl rounded-full opacity-50 group-hover:opacity-75 transition-opacity duration-500" />
+        <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 text-center shadow-2xl">
+          <Quote className="w-8 h-8 text-white/20 absolute top-4 left-4" />
+          
+          <div className="min-h-[3rem] flex items-center justify-center">
+            {isEditing ? (
+                <div className="w-full max-w-md mx-auto text-left">
+                    <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-white font-semibold">Edit Notes</h4>
+                        <button onClick={() => setIsEditing(false)} className="text-white/60 hover:text-white p-1 rounded-full transition-colors">
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
-                ))}
-            </div>
+                    
+                    <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        {notes.map((note, idx) => (
+                            <div key={idx} className="flex items-start gap-2 bg-white/5 p-2 rounded-lg border border-white/10">
+                                <GripVertical className="w-4 h-4 text-white/30 mt-1 cursor-grab" />
+                                <p className="text-white/80 text-sm flex-1">{note}</p>
+                                <button onClick={() => deleteNote(idx)} className="text-red-400 hover:text-red-300 p-1 transition-colors">
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    <form onSubmit={addNote} className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newNote}
+                            onChange={(e) => setNewNote(e.target.value)}
+                            placeholder="Ketik quote baru..."
+                            className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        />
+                        <button type="submit" disabled={!newNote.trim()} className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-white/10 disabled:text-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                            Tambah
+                        </button>
+                    </form>
+                </div>
+            ) : (
+                <div className="relative z-10 px-8">
+                    <p className="text-lg md:text-xl font-medium text-white/90 leading-relaxed tracking-wide">
+                        "{notes[currentNoteIndex]}"
+                    </p>
+                </div>
+            )}
+          </div>
+          
+          {!isEditing && (
+              <div className="absolute right-4 bottom-4 flex gap-2">
+                  {notes.length > 1 && (
+                      <button 
+                        onClick={randomizeNote}
+                        className="text-white/40 hover:text-white/80 p-1.5 rounded-full transition-colors"
+                        title="Acak Quote"
+                      >
+                          <Shuffle className="w-4 h-4" />
+                      </button>
+                  )}
+                  <button 
+                    onClick={() => setIsEditing(true)}
+                    className="text-white/40 hover:text-white/80 p-1.5 rounded-full transition-colors"
+                    title="Edit Quotes"
+                  >
+                      <Plus className="w-4 h-4" />
+                  </button>
+              </div>
+          )}
         </div>
-    );
+      </div>
+    </div>
+  );
 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   UploadCloud,
@@ -6,14 +7,7 @@ import {
   Loader2,
   ArrowLeft,
 } from "lucide-react";
-import { auth, db } from "../lib/firebase";
-import {
-  doc,
-  setDoc,
-  collection,
-  getDocs,
-  deleteDoc,
-} from "firebase/firestore";
+import { supabase } from "../lib/supabase";
 
 interface ImportTasksViewProps {
   onBack: () => void;
@@ -26,7 +20,7 @@ export function ImportTasksView({
   onNotification,
   onImportSuccess,
 }: ImportTasksViewProps) {
-  const [user, setUser] = useState(auth.currentUser);
+  const [user, setUser] = useState<any | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -35,8 +29,15 @@ export function ImportTasksView({
   const [isCommitting, setIsCommitting] = useState(false);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(setUser);
-    return unsub;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,7 +47,6 @@ export function ImportTasksView({
     setUploadProgress(0);
     setUploadComplete(false);
 
-    // Simulate upload progress
     setIsSimulatingUpload(true);
     let progress = 0;
     const interval = setInterval(() => {
@@ -56,7 +56,6 @@ export function ImportTasksView({
         clearInterval(interval);
         setIsSimulatingUpload(false);
         setUploadComplete(true);
-        // Read file content when "upload" is complete
         const reader = new FileReader();
         reader.onload = (event) => {
           setFileContent(event.target?.result as string);
@@ -171,15 +170,14 @@ export function ImportTasksView({
         return false;
       }
 
-      // clear existing schedules for current user/anonymous to prevent old tasks from staying
       const customPrefix = user
-        ? `custom_schedule_${user.uid}_`
+        ? `custom_schedule_${user.id}_`
         : "custom_schedule_";
       const globalPrefix = user
-        ? `globalOverrides_${user.uid}`
+        ? `globalOverrides_${user.id}`
         : "globalOverrides";
       const productivityPrefix = user
-        ? `productivity_${user.uid}_`
+        ? `productivity_${user.id}_`
         : "productivity_";
 
       const keysToRemove = [];
@@ -210,52 +208,40 @@ export function ImportTasksView({
 
       if (user) {
         try {
-          const schedulesSnap = await getDocs(
-            collection(db, "users", user.uid, "schedules"),
-          );
-          await Promise.all(schedulesSnap.docs.map((d) => deleteDoc(d.ref)));
-          const progressSnap = await getDocs(
-            collection(db, "users", user.uid, "progress"),
-          );
-          await Promise.all(progressSnap.docs.map((d) => deleteDoc(d.ref)));
-          await deleteDoc(
-            doc(db, "users", user.uid, "settings", "globalOverrides"),
-          );
+          await supabase.from('schedules').delete().eq('user_id', user.id);
+          await supabase.from('progress').delete().eq('user_id', user.id);
+          await supabase.from('settings').delete().eq('user_id', user.id).eq('setting_type', 'globalOverrides');
         } catch (e) {
-          console.error("Failed to clear Firebase docs:", e);
+          console.error("Failed to clear Supabase docs:", e);
         }
       }
 
       const promises = [];
       let importedCount = 0;
-
-      // Group validDataToImport items into a globalOverrides object if they are schedule items
       let itemsObj: Record<string, any> = {};
 
       for (const key in validDataToImport) {
         itemsObj[validDataToImport[key].id] = validDataToImport[key];
       }
 
-      let dateMatch = null; // Since we extract them flat, we just put them in globalOverrides
-
       const stringValue = JSON.stringify(itemsObj);
-      const newKey = user ? `globalOverrides_${user.uid}` : "globalOverrides";
+      const newKey = user ? `globalOverrides_${user.id}` : "globalOverrides";
       localStorage.setItem(newKey, stringValue);
 
       if (user) {
         promises.push(
-          setDoc(
-            doc(db, "users", user.uid, "settings", "globalOverrides"),
-            { items: itemsObj },
-            { merge: true },
-          ),
+          supabase.from("settings").upsert({
+            user_id: user.id,
+            setting_type: 'globalOverrides',
+            data: { items: itemsObj }
+          }, { onConflict: 'user_id, setting_type' })
         );
       }
       importedCount += Object.keys(itemsObj).length;
 
       if (promises.length > 0) {
         await Promise.all(promises).catch((e) =>
-          console.error("Firebase bulk save error:", e),
+          console.error("Supabase bulk save error:", e),
         );
       }
 

@@ -1,13 +1,6 @@
+
 import React, { useState, useEffect } from "react";
-import { auth, googleSignIn, db } from "../lib/firebase";
-import { signOut, User } from "firebase/auth";
-import {
-  doc,
-  setDoc,
-  collection,
-  getDocs,
-  deleteDoc,
-} from "firebase/firestore";
+import { supabase } from "../lib/supabase";
 import { LogOut, LogIn, User as UserIcon } from "lucide-react";
 
 export interface AuthMenuProps {
@@ -21,50 +14,49 @@ export function AuthMenu({
   onImportSuccess,
   onOpenImportTasks,
 }: AuthMenuProps = {}) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => {
-      console.log("Auth state changed:", u ? u.email : "null");
-      setUser(u);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
     });
-    return unsub;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setAuthError(null);
     try {
-      console.log("Starting sign in with popup...");
-      const result = await googleSignIn();
-      console.log("Sign in successful:", result.user.email);
-      setUser(result.user);
-    } catch (e: any) {
-      if (e.code === "auth/popup-closed-by-user") {
-        // Silently ignore or set a mild error, user closed popup
-        return;
-      }
-
-      console.error("Login fail", e);
-      if (
-        e.code === "auth/unauthorized-domain" ||
-        (e.message && e.message.includes("auth/unauthorized-domain"))
-      ) {
-        setAuthError(
-          `Akses Ditolak. Tambahkan domain berikut di Firebase Console (Authentication > Settings > Authorized domains): ${window.location.hostname}`,
-        );
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
       } else {
-        setAuthError(`Gagal login: ${e.message}`);
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (onNotification) onNotification("Berhasil daftar! Silakan cek email jika diperlukan, atau langsung masuk.");
       }
+      setShowForm(false);
+    } catch (e: any) {
+      setAuthError(e.message);
     }
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
   };
 
   const exportAllTasks = () => {
-    let globalKey = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+    let globalKey = user ? `globalOverrides_${user.id}` : 'globalOverrides';
     let dataToExport = {};
     const val = localStorage.getItem(globalKey);
     if (val) {
@@ -111,8 +103,7 @@ export function AuthMenu({
     try {
       if (!fileContent) throw new Error("File kosong");
       const data = JSON.parse(fileContent);
-      if (typeof data !== "object" || data === null)
-        throw new Error("Format invalid");
+      if (typeof data !== "object" || data === null) throw new Error("Format invalid");
 
       let isRawArray = Array.isArray(data);
       let validDataToImport: Record<string, any> = {};
@@ -128,8 +119,7 @@ export function AuthMenu({
       }
 
       if (Object.keys(validDataToImport).length === 0) {
-        if (onNotification)
-          onNotification("Tidak ada note valid yang ditemukan.");
+        if (onNotification) onNotification("Tidak ada note valid yang ditemukan.");
         return;
       }
 
@@ -150,25 +140,20 @@ export function AuthMenu({
               parsedValue = validDataToImport[key];
             }
           } catch (e) {
-            console.warn("Invalid JSON for note key", key);
             continue;
           }
 
-          const stringValue =
-            typeof parsedValue === "object"
-              ? JSON.stringify(parsedValue)
-              : String(parsedValue);
-          const newKey = user
-            ? `motivational_notes_${user.uid}`
-            : "motivational_notes_";
+          const stringValue = typeof parsedValue === "object" ? JSON.stringify(parsedValue) : String(parsedValue);
+          const newKey = user ? `motivational_notes_${user.id}` : "motivational_notes_";
           localStorage.setItem(newKey, stringValue);
+          
           if (user) {
             promises.push(
-              setDoc(
-                doc(db, "users", user.uid, "settings", "motivation"),
-                { notes: parsedValue },
-                { merge: true },
-              ),
+              supabase.from("settings").upsert({
+                user_id: user.id,
+                setting_type: 'motivation',
+                data: { notes: parsedValue }
+              }, { onConflict: 'user_id, setting_type' })
             );
           }
           importedCount++;
@@ -176,28 +161,17 @@ export function AuthMenu({
       }
 
       if (promises.length > 0) {
-        await Promise.all(promises).catch((e) =>
-          console.error("Firebase bulk save error:", e),
-        );
+        await Promise.all(promises).catch(e => console.error("Supabase bulk save error:", e));
       }
 
       if (importedCount === 0) {
-        if (onNotification)
-          onNotification("Tidak ada note valid yang ditemukan dalam data ini.");
+        if (onNotification) onNotification("Tidak ada note valid yang ditemukan dalam data ini.");
       } else {
-        if (onNotification)
-          onNotification(
-            `Berhasil mengimpor ${importedCount} data note! Memuat ulang...`,
-          );
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        if (onNotification) onNotification(`Berhasil mengimpor ${importedCount} data note! Memuat ulang...`);
+        setTimeout(() => { window.location.reload(); }, 1500);
       }
     } catch (err) {
-      console.error("Import notes error:", err);
-      if (onNotification) {
-        onNotification("Gagal mengimpor. Pastikan data valid (JSON).");
-      }
+      if (onNotification) onNotification("Gagal mengimpor. Pastikan data valid (JSON).");
     }
   };
 
@@ -220,7 +194,7 @@ export function AuthMenu({
         <div className="flex items-center gap-3 bg-white/10 rounded-full px-3 py-1.5 border border-white/20">
           <UserIcon className="w-4 h-4 text-white" />
           <span className="text-white text-sm font-medium">
-            {user.displayName || user.email}
+            {user.email}
           </span>
           <button
             onClick={logout}
@@ -271,18 +245,49 @@ export function AuthMenu({
   }
 
   return (
-    <div className="relative">
-      <button
-        onClick={login}
-        className="flex items-center gap-2 bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm"
-      >
-        <LogIn className="w-4 h-4" />
-        <span>Login</span>
-      </button>
-      {authError && (
-        <div className="absolute top-full right-0 mt-2 w-72 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl shadow-lg z-50">
-          <p className="font-semibold mb-1">Error Login</p>
-          <p>{authError}</p>
+    <div className="relative z-50">
+      {!showForm ? (
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2 bg-white text-emerald-700 hover:bg-emerald-50 px-4 py-2 rounded-full text-sm font-semibold transition-colors shadow-sm"
+        >
+          <LogIn className="w-4 h-4" />
+          <span>Login / Daftar</span>
+        </button>
+      ) : (
+        <div className="absolute top-full right-0 mt-2 w-72 p-4 bg-white rounded-xl shadow-xl border border-gray-100">
+          <h3 className="text-gray-900 font-semibold mb-4 text-sm">{isLogin ? 'Login ke Akun Anda' : 'Buat Akun Baru'}</h3>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              required
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              required
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white"
+            />
+            {authError && <p className="text-red-500 text-xs">{authError}</p>}
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg text-sm transition-colors">
+              {isLogin ? 'Masuk' : 'Daftar'}
+            </button>
+          </form>
+          <p className="text-xs text-gray-500 mt-3 text-center">
+            {isLogin ? 'Belum punya akun?' : 'Sudah punya akun?'}
+            <button onClick={() => { setIsLogin(!isLogin); setAuthError(null); }} className="ml-1 text-emerald-600 hover:underline">
+              {isLogin ? 'Daftar' : 'Masuk'}
+            </button>
+          </p>
+          <button onClick={() => setShowForm(false)} className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600">
+            Batal
+          </button>
         </div>
       )}
     </div>

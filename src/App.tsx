@@ -112,9 +112,6 @@ export default function App() {
   const [showActivePopup, setShowActivePopup] = useState(true);
   const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [firebaseProxy, setFirebaseProxy] = useState(
-    localStorage.getItem("firebase_auth_proxy") || "",
-  );
   const [notification, setNotification] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -1319,46 +1316,13 @@ export default function App() {
                 />
               </div>
 
-              <div className="pt-4 border-t border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                  Firebase Auth Proxy Domain
-                </h3>
-                <p className="text-xs text-gray-500 mb-2">
-                  Jika Anda mengalami error{" "}
-                  <code>auth/unauthorized-domain</code>, masukkan full URL proxy
-                  Cloudflare Worker Anda di sini (misal:{" "}
-                  <code>auth-proxy.username.workers.dev</code> tanpa protokol
-                  https). Halaman perlu direfresh setelah diubah.
-                </p>
-                <input
-                  type="text"
-                  placeholder="auth-proxy.username.workers.dev"
-                  className="w-full text-sm p-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors"
-                  value={firebaseProxy}
-                  onChange={(e) => setFirebaseProxy(e.target.value)}
-                />
-              </div>
+
             </div>
 
             <div className="pt-4 mt-2 border-t border-gray-100 shrink-0 flex gap-3">
               <button
                 onClick={() => {
-                  const currentVal =
-                    localStorage.getItem("firebase_auth_proxy") || "";
-                  if (currentVal !== firebaseProxy) {
-                    if (firebaseProxy.trim() === "") {
-                      localStorage.removeItem("firebase_auth_proxy");
-                    } else {
-                      // Clean up URL (remove https://, etc)
-                      let cleaned = firebaseProxy.trim();
-                      cleaned = cleaned.replace(/^https?:\/\//, "");
-                      cleaned = cleaned.replace(/\/$/, "");
-                      localStorage.setItem("firebase_auth_proxy", cleaned);
-                    }
-                    window.location.reload();
-                  } else {
-                    setShowSettingsModal(false);
-                  }
+                  setShowSettingsModal(false);
                 }}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all active:scale-95"
               >

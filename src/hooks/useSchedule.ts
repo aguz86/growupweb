@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parse, addDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { getScheduleForDate, ScheduleItem } from '../data/schedule';
-import { db, auth } from '../lib/firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
+
 
 export type DailyProgress = Record<string, boolean>; // id -> checked state
 
@@ -118,10 +118,18 @@ export function useSchedule() {
   const [lastSpeechId, setLastSpeechId] = useState<string | null>(null);
   const previousItemRef = useRef<string | null>(null);
 
-  const [user, setUser] = useState(auth.currentUser);
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
-    return auth.onAuthStateChanged(setUser);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Background Audio Hack to keep service alive
@@ -196,7 +204,7 @@ export function useSchedule() {
 
   // Load progress on mount or date change
   useEffect(() => {
-    const key = user ? `productivity_${user.uid}_${currentDateStr}` : `productivity_${currentDateStr}`;
+    const key = user ? `productivity_${user.id}_${currentDateStr}` : `productivity_${currentDateStr}`;
     const todayProgressStr = localStorage.getItem(key);
     if (todayProgressStr) {
       try {
@@ -209,10 +217,10 @@ export function useSchedule() {
     }
 
     if (user) {
-        getDoc(doc(db, 'users', user.uid, 'progress', currentDateStr)).then(snap => {
-            if (snap.exists()) {
-                setProgress(snap.data().progress || {});
-                localStorage.setItem(key, JSON.stringify(snap.data().progress || {}));
+        supabase.from('progress').select('data').eq('user_id', user.id).eq('date_str', currentDateStr).single().then(({ data, error }) => {
+            if (!error && data?.data?.progress) {
+                setProgress(data.data.progress);
+                localStorage.setItem(key, JSON.stringify(data.data.progress));
             }
         });
     }
@@ -221,10 +229,14 @@ export function useSchedule() {
   const toggleTask = (id: string) => {
     setProgress(prev => {
       const next = { ...prev, [id]: !prev[id] };
-      const key = user ? `productivity_${user.uid}_${currentDateStr}` : `productivity_${currentDateStr}`;
+      const key = user ? `productivity_${user.id}_${currentDateStr}` : `productivity_${currentDateStr}`;
       localStorage.setItem(key, JSON.stringify(next));
       if (user) {
-          setDoc(doc(db, 'users', user.uid, 'progress', currentDateStr), { progress: next }, { merge: true });
+          supabase.from('progress').upsert({
+              user_id: user.id,
+              date_str: currentDateStr,
+              data: { progress: next }
+          }, { onConflict: 'user_id, date_str' }).then(({error}) => { if (error) console.error(error); });
       }
       return next;
     });
@@ -282,7 +294,7 @@ export function useSchedule() {
     const loadedSchedules: Record<string, ScheduleItem[]> = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        const prefix = user ? `custom_schedule_${user.uid}_` : 'custom_schedule_';
+        const prefix = user ? `custom_schedule_${user.id}_` : 'custom_schedule_';
         if (key && key.startsWith(prefix)) {
             const dateStr = key.replace(prefix, '');
             try {
@@ -293,11 +305,11 @@ export function useSchedule() {
     setCustomSchedules(loadedSchedules);
     
     try {
-        const localOverrides = JSON.parse(localStorage.getItem(user ? `globalOverrides_${user.uid}` : 'globalOverrides') || '{}');
+        const localOverrides = JSON.parse(localStorage.getItem(user ? `globalOverrides_${user.id}` : 'globalOverrides') || '{}');
         setGlobalOverrides(localOverrides);
     } catch(e) {}
 
-    const progKey = user ? `productivity_${user.uid}_${currentDateStr}` : `productivity_${currentDateStr}`;
+    const progKey = user ? `productivity_${user.id}_${currentDateStr}` : `productivity_${currentDateStr}`;
     const todayProgressStr = localStorage.getItem(progKey);
     if (todayProgressStr) {
       try {
@@ -319,19 +331,23 @@ export function useSchedule() {
   useEffect(() => {
     if (!user) return;
     
-    // Listen to all schedules for this user to sync across devices seamlessly
-    import('firebase/firestore').then(({ collection, onSnapshot }) => {
-        const schedulesRef = collection(db, 'users', user.uid, 'schedules');
-        const unsubSchedules = onSnapshot(schedulesRef, (snap) => {
+    // Supabase fetch all schedules for user
+    supabase.from('schedules').select('*').eq('user_id', user.id).then(({ data, error }) => {
+        if (!error && data) {
             const loadedSchedules: Record<string, ScheduleItem[]> = {};
-            snap.forEach(docSnap => {
-                loadedSchedules[docSnap.id] = docSnap.data().schedule;
-                localStorage.setItem(`custom_schedule_${user.uid}_${docSnap.id}`, JSON.stringify(docSnap.data().schedule));
+            data.forEach((row: any) => {
+                loadedSchedules[row.date_str] = row.schedule_data;
+                localStorage.setItem(`custom_schedule_${user.id}_${row.date_str}`, JSON.stringify(row.schedule_data));
             });
             setCustomSchedules(prev => ({ ...prev, ...loadedSchedules }));
-        });
-        
-        return () => unsubSchedules();
+        }
+    });
+
+    supabase.from('settings').select('data').eq('user_id', user.id).eq('setting_type', 'globalOverrides').single().then(({ data, error }) => {
+        if (!error && data?.data?.items) {
+            setGlobalOverrides(data.data.items);
+            localStorage.setItem(`globalOverrides_${user.id}`, JSON.stringify(data.data.items));
+        }
     });
   }, [user]);
 
@@ -339,26 +355,18 @@ export function useSchedule() {
   useEffect(() => {
     if (!user) return;
     
-    const unsub = onSnapshot(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), (docSnap) => {
-        if (docSnap.exists()) {
-            setGlobalOverrides(docSnap.data().items || {});
-            localStorage.setItem(`globalOverrides_${user.uid}`, JSON.stringify(docSnap.data().items || {}));
-        }
-    });
-    
-    return () => unsub();
+
   }, [user]);
 
   const loadScheduleForDate = async (dateStr: string) => {
     if (user) {
         try {
-            const docRef = doc(db, 'users', user.uid, 'schedules', dateStr);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                setCustomSchedules(prev => ({ ...prev, [dateStr]: docSnap.data().schedule }));
+            const { data, error } = await supabase.from('schedules').select('schedule_data').eq('user_id', user.id).eq('date_str', dateStr).single();
+            if (!error && data?.schedule_data) {
+                setCustomSchedules(prev => ({ ...prev, [dateStr]: data.schedule_data }));
             }
         } catch (e) {
-            console.error("Firebase fetch error", e);
+            console.error("Supabase fetch error", e);
         }
     }
   };
@@ -410,13 +418,17 @@ export function useSchedule() {
   };
 
   const saveDailySchedule = async (dateStr: string, schedule: ScheduleItem[]) => {
-      const prefix = user ? `custom_schedule_${user.uid}_${dateStr}` : `custom_schedule_${dateStr}`;
+      const prefix = user ? `custom_schedule_${user.id}_${dateStr}` : `custom_schedule_${dateStr}`;
       setCustomSchedules(prev => ({ ...prev, [dateStr]: schedule }));
       localStorage.setItem(prefix, JSON.stringify(schedule));
       
       if (user) {
-          setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule }, { merge: true })
-              .catch(e => console.error("Firebase save error", e));
+          supabase.from('schedules').upsert({
+              user_id: user.id,
+              date_str: dateStr,
+              schedule_data: schedule
+          }, { onConflict: 'user_id, date_str' })
+              .then(({error}) => { if (error) console.error("Supabase save error", error); });
       }
   };
 
@@ -432,7 +444,7 @@ export function useSchedule() {
           await saveDailySchedule(dateStr, newSchedule);
       } else {
           // global override
-          const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+          const globalPrefix = user ? `globalOverrides_${user.id}` : 'globalOverrides';
           
           let overrideData = { ...updatedItem };
           if (applyMode === 'all_except') {
@@ -449,8 +461,12 @@ export function useSchedule() {
           localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
           
           if (user) {
-              setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true })
-                  .catch(e => console.error("Firebase save error", e));
+              supabase.from('settings').upsert({
+                  user_id: user.id,
+                  setting_type: 'globalOverrides',
+                  data: { items: newOverrides }
+              }, { onConflict: 'user_id, setting_type' })
+                  .then(({error}) => { if (error) console.error("Supabase save error", error); });
           }
       }
   };
@@ -645,7 +661,7 @@ export function useSchedule() {
       const dStr = format(d, 'yyyy-MM-dd');
       const dayName = format(d, 'EEE');
       
-      const key = user ? `productivity_${user.uid}_${dStr}` : `productivity_${dStr}`;
+      const key = user ? `productivity_${user.id}_${dStr}` : `productivity_${dStr}`;
       const stored = localStorage.getItem(key);
       let completedCount = 0;
       if (stored) {
