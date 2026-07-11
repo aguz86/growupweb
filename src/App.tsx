@@ -960,11 +960,9 @@ export default function App() {
                 <div className="flex flex-col items-center gap-2 mb-6 text-center focus:outline-none">
                   <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
                     <BarChart3 className="w-6 h-6 text-emerald-600 animate-pulse" />
-                    Alokasi Waktu (Minggu Ini)
+                    Alokasi Waktu
                   </h2>
-                  <p className="text-sm text-gray-500">
-                    Mulai Senin hingga Hari Ini.
-                  </p>
+
                   {weekPieData.length > 0 && (
                     <div className="mt-4 bg-emerald-50 px-5 py-2.5 rounded-full border border-emerald-100 shadow-sm">
                       <span className="text-emerald-800 font-semibold text-sm">
@@ -1073,21 +1071,19 @@ export default function App() {
           isOpen={true}
           item={editingTask.item}
           onClose={() => setEditingTask(null)}
-          onSave={async (updated, applyMode) => {
+          onSave={async (updated) => {
             await updateScheduleItem(
               editingTask.dateStr,
               editingTask.index,
               updated,
-              applyMode,
             );
             setEditingTask(null);
             showNotification("Data tersimpan");
           }}
-          onDelete={async (applyMode) => {
+          onDelete={async () => {
             await deleteScheduleItem(
               editingTask.dateStr,
               editingTask.index,
-              applyMode,
             );
             setEditingTask(null);
             showNotification("Data dihapus");

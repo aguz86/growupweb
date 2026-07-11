@@ -28,7 +28,11 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
 
   useEffect(() => {
     setFormData(item);
-
+    if (item.excludedDays && item.excludedDays.length > 0) {
+      setApplyMode('all_except');
+    } else {
+      setApplyMode('today');
+    }
     setIsSaving(false);
     setIsDeleting(false);
   }, [item, isOpen]);
@@ -130,7 +134,9 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
             <input type="checkbox" checked={formData.isBreak} onChange={e => setFormData({ ...formData, isBreak: e.target.checked })} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
             <span className="text-sm font-medium text-gray-700">This is a break</span>
           </label>
-        </div>
+          
+          
+
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-between items-center gap-3">
           <div className="w-full sm:w-auto">
             {onDelete && (

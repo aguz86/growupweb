@@ -1,41 +1,3 @@
-import { useState, useEffect } from 'react';
-import { ScheduleItem } from '../data/schedule';
-import { X, Save, Trash2 } from 'lucide-react';
-
-interface EditTaskModalProps {
-  item: ScheduleItem;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (updatedItem: ScheduleItem) => void;
-  onDelete?: () => void;
-}
-
-export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditTaskModalProps) {
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [formData, setFormData] = useState<ScheduleItem>(item);
-  
-
-  const DAYS = [
-    { value: 1, label: 'Senin' },
-    { value: 2, label: 'Selasa' },
-    { value: 3, label: 'Rabu' },
-    { value: 4, label: 'Kamis' },
-    { value: 5, label: 'Jumat' },
-    { value: 6, label: 'Sabtu' },
-    { value: 0, label: 'Minggu' },
-  ];
-
-  useEffect(() => {
-    setFormData(item);
-
-    setIsSaving(false);
-    setIsDeleting(false);
-  }, [item, isOpen]);
-
-  if (!isOpen) return null;
-
-  const handleIncludeDayToggle = (day: number) => {
     const currentExcluded = formData.excludedDays || [];
     // If it's currently excluded, we want to include it (remove from excluded)
     // If it's currently included, we want to exclude it (add to excluded)
@@ -130,7 +92,9 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
             <input type="checkbox" checked={formData.isBreak} onChange={e => setFormData({ ...formData, isBreak: e.target.checked })} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
             <span className="text-sm font-medium text-gray-700">This is a break</span>
           </label>
-        </div>
+          
+          
+
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col-reverse sm:flex-row justify-between items-center gap-3">
           <div className="w-full sm:w-auto">
             {onDelete && (

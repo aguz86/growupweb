@@ -315,26 +315,6 @@ export function useSchedule() {
     reloadLocalData();
   }, [user]);
 
-
-  useEffect(() => {
-    if (!user) return;
-    
-    // Listen to all schedules for this user to sync across devices seamlessly
-    import('firebase/firestore').then(({ collection, onSnapshot }) => {
-        const schedulesRef = collection(db, 'users', user.uid, 'schedules');
-        const unsubSchedules = onSnapshot(schedulesRef, (snap) => {
-            const loadedSchedules: Record<string, ScheduleItem[]> = {};
-            snap.forEach(docSnap => {
-                loadedSchedules[docSnap.id] = docSnap.data().schedule;
-                localStorage.setItem(`custom_schedule_${user.uid}_${docSnap.id}`, JSON.stringify(docSnap.data().schedule));
-            });
-            setCustomSchedules(prev => ({ ...prev, ...loadedSchedules }));
-        });
-        
-        return () => unsubSchedules();
-    });
-  }, [user]);
-
   // Fetch Firebase schedules when user logs in
   useEffect(() => {
     if (!user) return;
@@ -367,15 +347,8 @@ export function useSchedule() {
      loadScheduleForDate(currentDateStr);
   }, [currentDateStr, user]);
 
-
   const getResolvedSchedule = (date: Date) => {
       const dStr = format(date, 'yyyy-MM-dd');
-      
-      // If there's a custom saved schedule for THIS specific date, use it directly!
-      if (customSchedules[dStr] && customSchedules[dStr].length > 0) {
-          return customSchedules[dStr];
-      }
-      
       let base = getScheduleForDate(date);
       const dayOfWeek = date.getDay();
       
@@ -383,7 +356,7 @@ export function useSchedule() {
           const baseIds = new Set(base.map(item => item.id));
           
           base = base.map(item => {
-              const override = globalOverrides[item.id];
+              const override = globalOverrides[item.id] || globalOverrides[item.start];
               if (override) {
                   if (override.excludedDays && override.excludedDays.includes(dayOfWeek)) {
                       return item;
@@ -396,7 +369,7 @@ export function useSchedule() {
           
           Object.values(globalOverrides).forEach((override: any) => {
               if (override.isDeleted) return;
-              if (!baseIds.has(override.id)) {
+              if (!baseIds.has(override.id) && !baseIds.has(override.start)) {
                   if (!(override.excludedDays && override.excludedDays.includes(dayOfWeek))) {
                       base.push({ ...override });
                   }
@@ -409,74 +382,50 @@ export function useSchedule() {
       return base.filter(i => !i.isDeleted);
   };
 
-  const saveDailySchedule = async (dateStr: string, schedule: ScheduleItem[]) => {
-      const prefix = user ? `custom_schedule_${user.uid}_${dateStr}` : `custom_schedule_${dateStr}`;
-      setCustomSchedules(prev => ({ ...prev, [dateStr]: schedule }));
-      localStorage.setItem(prefix, JSON.stringify(schedule));
-      
-      if (user) {
-          setDoc(doc(db, 'users', user.uid, 'schedules', dateStr), { schedule }, { merge: true })
-              .catch(e => console.error("Firebase save error", e));
-      }
-  };
-
-  const updateScheduleItem = async (dateStr: string, index: number, updatedItem: ScheduleItem, applyMode: 'today' | 'all' | 'all_except' = 'today') => {
+  const updateScheduleItem = async (dateStr: string, index: number, updatedItem: ScheduleItem, applyMode: 'today' | 'all' | 'all_except' = 'all') => {
       const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
       const originalItem = current[index];
+      const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
       
-      if (applyMode === 'today') {
-          const newSchedule = [...current];
-          newSchedule[index] = updatedItem;
-          // Sort to maintain order
-          newSchedule.sort((a, b) => a.start.localeCompare(b.start));
-          await saveDailySchedule(dateStr, newSchedule);
-      } else {
-          // global override
-          const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
-          
-          let overrideData = { ...updatedItem };
-          if (applyMode === 'all_except') {
-              const day = parse(dateStr, 'yyyy-MM-dd', new Date()).getDay();
-              // If excluded, ensure it doesn't appear on this day
-              if (!overrideData.excludedDays) overrideData.excludedDays = [];
-              if (!overrideData.excludedDays.includes(day)) {
-                  overrideData.excludedDays.push(day);
-              }
-          }
-          
-          const newOverrides = { ...globalOverrides, [originalItem.id]: overrideData };
-          setGlobalOverrides(newOverrides);
-          localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
-          
-          if (user) {
-              setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true })
-                  .catch(e => console.error("Firebase save error", e));
-          }
+      const newOverrides = { ...globalOverrides, [originalItem.id]: updatedItem };
+      setGlobalOverrides(newOverrides);
+      localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
+      
+      if (user) {
+          setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true })
+              .catch(e => console.error("Firebase save error", e));
       }
+  }
   };
 
   const deleteScheduleItem = async (dateStr: string, index: number, applyMode: 'today' | 'all' | 'all_except' = 'today') => {
       const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
       const originalItem = current[index];
-      
-      if (applyMode === 'today') {
-          const newSchedule = current.filter((_, i) => i !== index);
-          await saveDailySchedule(dateStr, newSchedule);
-      } else {
-          const updatedItem = { ...originalItem, isDeleted: true };
-          await updateScheduleItem(dateStr, index, updatedItem, applyMode);
-      }
+      const updatedItem = { ...originalItem, isDeleted: true };
+      return updateScheduleItem(dateStr, index, updatedItem, applyMode);
   };
 
   const deleteAllScheduleItems = async (dateStr: string) => {
-      await saveDailySchedule(dateStr, []);
+      const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+      setGlobalOverrides({});
+      localStorage.removeItem(globalPrefix);
+      if (user) {
+          setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: {} })
+              .catch(e => console.error("Firebase save error", e));
+      }
   };
 
   const addScheduleItem = async (dateStr: string, newItem: ScheduleItem) => {
-      const current = getResolvedSchedule(parse(dateStr, 'yyyy-MM-dd', new Date()));
-      const newSchedule = [...current, newItem];
-      newSchedule.sort((a, b) => a.start.localeCompare(b.start));
-      await saveDailySchedule(dateStr, newSchedule);
+      const globalPrefix = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+      
+      const newOverrides = { ...globalOverrides, [newItem.id]: newItem };
+      setGlobalOverrides(newOverrides);
+      localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
+      
+      if (user) {
+          setDoc(doc(db, 'users', user.uid, 'settings', 'globalOverrides'), { items: newOverrides }, { merge: true })
+              .catch(e => console.error("Firebase save error", e));
+      }
   };
   // Timer loop for active item & alarms
   useEffect(() => {

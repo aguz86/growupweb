@@ -64,30 +64,21 @@ export function AuthMenu({
   };
 
   const exportAllTasks = () => {
-    const exportData: Record<string, any> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (
-        key &&
-        (key.startsWith("productivity_") ||
-          key.startsWith("custom_schedule_") ||
-          key.startsWith("globalOverrides"))
-      ) {
-        try {
-          const val = localStorage.getItem(key);
-          exportData[key] = val ? JSON.parse(val) : null;
-        } catch (e) {
-          exportData[key] = localStorage.getItem(key);
-        }
-      }
+    let globalKey = user ? `globalOverrides_${user.uid}` : 'globalOverrides';
+    let dataToExport = {};
+    const val = localStorage.getItem(globalKey);
+    if (val) {
+      try {
+        dataToExport = JSON.parse(val);
+      } catch (e) {}
     }
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `backup_semua_task_${new Date().toISOString().split("T")[0]}.json`;
+    a.download = `backup_task.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
