@@ -126,6 +126,30 @@ export function EditTaskModal({ item, isOpen, onClose, onSave, onDelete }: EditT
             <textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white resize-none" />
           </div>
 
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-2">Pengecualian Hari (Tampil Kecuali di Hari Berikut)</label>
+            <div className="flex flex-wrap gap-2">
+              {DAYS.map((day) => {
+                const isExcluded = (formData.excludedDays || []).includes(day.value);
+                return (
+                  <button
+                    key={day.value}
+                    onClick={() => handleIncludeDayToggle(day.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      isExcluded 
+                        ? 'bg-red-100 text-red-700 border border-red-200' 
+                        : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5">Hijau = Tampil, Merah = Dikecualikan</p>
+          </div>
+
           <label className="flex items-center gap-2 cursor-pointer mt-2 w-max p-2 -ml-2 rounded-lg hover:bg-gray-50 transition-colors">
             <input type="checkbox" checked={formData.isBreak} onChange={e => setFormData({ ...formData, isBreak: e.target.checked })} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
             <span className="text-sm font-medium text-gray-700">This is a break</span>
