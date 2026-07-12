@@ -80,34 +80,35 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
       
       if (user) {
           try {
-              await supabase.from('settings').upsert({
+              const { error } = await supabase.from('settings').upsert({
                 user_id: user.id,
                 setting_type: 'motivation',
                 data: { notes: newNotes }
               }, { onConflict: 'user_id, setting_type' });
+              if (error) throw error;
           } catch(e) {
-              console.error("Supabase save error", e);
+              console.error('Supabase save error', e);
           }
       }
   };
 
-  const addNote = (e: React.FormEvent) => {
+  const addNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newNote.trim()) {
-      saveNotes([...notes, newNote.trim()]);
-      setNewNote("");
+      await saveNotes([...notes, newNote.trim()]);
+      setNewNote('');
       setCurrentNoteIndex(notes.length);
-      if (onNotification) onNotification("Note ditambahkan");
+      if (onNotification) onNotification('Note ditambahkan');
     }
   };
 
-  const deleteNote = (index: number) => {
+  const deleteNote = async (index: number) => {
     const next = notes.filter((_, i) => i !== index);
-    saveNotes(next);
+    await saveNotes(next);
     if (currentNoteIndex >= next.length) {
       setCurrentNoteIndex(Math.max(0, next.length - 1));
     }
-    if (onNotification) onNotification("Note dihapus");
+    if (onNotification) onNotification('Note dihapus');
   };
 
   const randomizeNote = () => {

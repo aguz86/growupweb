@@ -232,11 +232,18 @@ export function useSchedule() {
       const key = user ? `productivity_${user.id}_${currentDateStr}` : `productivity_${currentDateStr}`;
       localStorage.setItem(key, JSON.stringify(next));
       if (user) {
-          supabase.from('progress').upsert({
-              user_id: user.id,
-              date_str: currentDateStr,
-              data: { progress: next }
-          }, { onConflict: 'user_id, date_str' }).then(({error}) => { if (error) console.error(error); });
+          (async () => {
+              try {
+                  const { error } = await supabase.from('progress').upsert({
+                      user_id: user.id,
+                      date_str: currentDateStr,
+                      data: { progress: next }
+                  }, { onConflict: 'user_id, date_str' });
+                  if (error) console.error('Supabase progress save error', error);
+              } catch(e) {
+                  console.error('Supabase progress save exception', e);
+              }
+          })();
       }
       return next;
     });
@@ -423,12 +430,12 @@ export function useSchedule() {
       localStorage.setItem(prefix, JSON.stringify(schedule));
       
       if (user) {
-          supabase.from('schedules').upsert({
+          const { error } = await supabase.from('schedules').upsert({
               user_id: user.id,
               date_str: dateStr,
               schedule_data: schedule
-          }, { onConflict: 'user_id, date_str' })
-              .then(({error}) => { if (error) console.error("Supabase save error", error); });
+          }, { onConflict: 'user_id, date_str' });
+          if (error) console.error('Supabase save error', error);
       }
   };
 
@@ -461,12 +468,12 @@ export function useSchedule() {
           localStorage.setItem(globalPrefix, JSON.stringify(newOverrides));
           
           if (user) {
-              supabase.from('settings').upsert({
+              const { error } = await supabase.from('settings').upsert({
                   user_id: user.id,
                   setting_type: 'globalOverrides',
                   data: { items: newOverrides }
-              }, { onConflict: 'user_id, setting_type' })
-                  .then(({error}) => { if (error) console.error("Supabase save error", error); });
+              }, { onConflict: 'user_id, setting_type' });
+              if (error) console.error('Supabase save error', error);
           }
       }
   };
