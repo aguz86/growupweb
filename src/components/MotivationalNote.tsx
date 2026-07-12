@@ -30,6 +30,18 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
     return () => subscription.unsubscribe();
   }, []);
 
+
+  const sanitizeNotes = (raw: any): string[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(item => {
+      if (typeof item === 'string') return item;
+      if (typeof item === 'object' && item !== null) {
+        return item.content || item.text || item.note || JSON.stringify(item);
+      }
+      return String(item);
+    });
+  };
+
   const loadNotes = async () => {
     const key = user ? `motivational_notes_${user.id}` : 'motivational_notes_';
     const local = localStorage.getItem(key);
@@ -44,16 +56,16 @@ export function MotivationalNote({ onNotification }: MotivationalNoteProps) {
               .single();
               
             if (!error && data?.data?.notes) {
-                setNotes(data.data.notes);
+                setNotes(sanitizeNotes(data.data.notes));
                 localStorage.setItem(key, JSON.stringify(data.data.notes));
             } else if (local) {
-                setNotes(JSON.parse(local));
+                setNotes(sanitizeNotes(JSON.parse(local)));
             }
         } catch(e) {
-            if (local) setNotes(JSON.parse(local));
+            if (local) setNotes(sanitizeNotes(JSON.parse(local)));
         }
     } else if (local) {
-        setNotes(JSON.parse(local));
+        setNotes(sanitizeNotes(JSON.parse(local)));
     }
   };
 

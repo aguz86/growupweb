@@ -67,6 +67,7 @@ export function AddActivityModal({ isOpen, onClose, onSave }: AddActivityModalPr
 
   const handleSave = async () => {
     if (!formData.activity.trim()) return alert("Nama aktivitas wajib diisi.");
+    if (formData.start === "00:00" || formData.end === "00:00") return alert("Waktu 00:00 tidak diizinkan.");
     setIsSaving(true);
     try {
         await onSave(formData);

@@ -143,6 +143,14 @@ export function AuthMenu({
             continue;
           }
 
+          if (Array.isArray(parsedValue)) {
+            parsedValue = parsedValue.map((item: any) => {
+              if (typeof item === 'string') return item;
+              if (typeof item === 'object' && item !== null) return item.content || item.text || item.note || JSON.stringify(item);
+              return String(item);
+            });
+          }
+
           const stringValue = typeof parsedValue === "object" ? JSON.stringify(parsedValue) : String(parsedValue);
           const newKey = user ? `motivational_notes_${user.id}` : "motivational_notes_";
           localStorage.setItem(newKey, stringValue);
